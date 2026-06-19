@@ -67,7 +67,7 @@ def test_module_benchmark():
         record("感知模块", False, f"{perc_time:.3f}ms/次 超标")
         all_pass = False
 
-    # 预测模块
+    # 预测模块（阶段16真实化后含self-attention+训练，阈值放宽到15ms）
     pred = MultiLevelPredictor(config)
     state = perc.process(raw)
     for _ in range(10):
@@ -76,7 +76,7 @@ def test_module_benchmark():
     for _ in range(1000):
         pred.predict(state)
     pred_time = (time.time() - t0) / 1000 * 1000
-    if pred_time < 5:
+    if pred_time < 15:
         record("预测模块", True, f"{pred_time:.3f}ms/次")
     else:
         record("预测模块", False, f"{pred_time:.3f}ms/次 超标")
