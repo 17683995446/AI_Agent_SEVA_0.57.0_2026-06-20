@@ -4,6 +4,7 @@
 12阶段核心循环：感知->驱力->目标->预测->决策->安全->执行->误差->学习->记忆->元认知->时序
 """
 import time
+import gc
 import logging
 import numpy as np
 from typing import Any, Dict, List, Optional
@@ -81,6 +82,9 @@ class SelfEvolvingAgentCore:
         logger.info("[Core] initialize() 开始")
         # 模块向总线注册（简化：核心循环直接调用，总线用于跨模块事件）
         self.is_running = True
+        # GC管理：提高阈值减少周期内GC触发频率，降低p99延迟尖峰
+        # 阈值设高（50000），依赖_timing_control中每100周期的显式gc.collect(0)
+        gc.set_threshold(50000, 50, 50)
         logger.info("[Core] initialize() 完成")
 
     def inject_input(self, raw_input: np.ndarray):
@@ -233,6 +237,8 @@ class SelfEvolvingAgentCore:
             if (self.cycle_count % self.config.get("memory", "consolidation_interval") == 0
                 and self.cycle_count > 0):
                 self.modules["memory"].consolidate()
+                # 在巩固阶段（已有开销）执行GC，避免GC在普通周期内触发尖峰
+                gc.collect(0)
             cycle_log.append({"stage": "memory", "time": time.time()-t0,
                               "result": {"episodic_count":
                                          self.modules["memory"].episodic_count()}})
@@ -309,6 +315,12 @@ class SelfEvolvingAgentCore:
             timeout = self.config.get("core", "cycle_timeout_ms") / 1000.0
             if avg_time > timeout:
                 logger.warning(f"[Core] 平均周期时间{avg_time:.3f}s超过阈值{timeout:.3f}s")
+        # 周期性GC：每100代执行gen0回收，每500代执行gen1回收
+        # 防止GC在周期内触发尖峰
+        if self.cycle_count % 500 == 0:
+            gc.collect(1)
+        elif self.cycle_count % 100 == 0:
+            gc.collect(0)
 
     def run_cycle_with_logging(self) -> List[Dict]:
         """执行周期并返回详细日志（用于测试）"""
