@@ -9,6 +9,7 @@ import logging
 from typing import List, Optional, Tuple, Dict
 from .types import Prediction, PerceptionState
 from .config import Config
+from .training import TrainingLoop, LRScheduler, Regularizer, EarlyStopping, GradientMonitor
 
 logger = logging.getLogger("seva.predictor")
 
@@ -39,7 +40,8 @@ class GRULayer:
     可真正学习时序预测任务
     """
 
-    def __init__(self, dim: int, learning_rate: float = 0.01):
+    def __init__(self, dim: int, learning_rate: float = 0.01,
+                 total_steps: int = 10000, l2_lambda: float = 1e-4):
         self.dim = dim
         self.lr = learning_rate
         # Xavier初始化
@@ -59,10 +61,19 @@ class GRULayer:
         # Adam优化器状态
         self._adam_init()
 
+        # 阶段17: 训练辅助系统
+        self.training_loop = TrainingLoop(
+            initial_lr=learning_rate,
+            total_steps=total_steps,
+            l2_lambda=l2_lambda,
+            patience=200,
+            schedule_type="warmup_cosine"
+        )
+
         # 训练统计
         self.train_steps = 0
         self.loss_history: List[float] = []
-        logger.info(f"[GRULayer] 初始化 dim={dim} lr={learning_rate} (真实BPTT训练)")
+        logger.info(f"[GRULayer] 初始化 dim={dim} lr={learning_rate} (真实BPTT训练+阶段17优化)")
 
     def _adam_init(self):
         """初始化Adam优化器状态"""
@@ -78,8 +89,10 @@ class GRULayer:
             self.adam_v[name] = np.zeros_like(param)
 
     def _adam_update(self, grads: Dict[str, np.ndarray]):
-        """Adam优化器参数更新"""
+        """Adam优化器参数更新（阶段17: 使用动态学习率）"""
         self.adam_t += 1
+        # 阶段17: 使用学习率调度器
+        current_lr = self.training_loop.step_lr()
         for name, grad in grads.items():
             if grad is None:
                 continue
@@ -89,7 +102,7 @@ class GRULayer:
             m_hat = self.adam_m[name] / (1 - self.beta1 ** self.adam_t)
             v_hat = self.adam_v[name] / (1 - self.beta2 ** self.adam_t)
             param = getattr(self, name)
-            param -= self.lr * m_hat / (np.sqrt(v_hat) + self.eps)
+            param -= current_lr * m_hat / (np.sqrt(v_hat) + self.eps)
             setattr(self, name, _safe(param, -10.0, 10.0))
 
     def forward(self, x: np.ndarray) -> np.ndarray:
@@ -178,6 +191,7 @@ class GRULayer:
     def train_step(self, x: np.ndarray, target: np.ndarray) -> float:
         """
         单步训练：前向→计算损失→反向→Adam更新
+        阶段17: 集成L2正则化、梯度监控、学习率调度
         x: 输入, target: 目标输出（下一个状态）
         返回: loss值
         """
@@ -190,17 +204,27 @@ class GRULayer:
 
         # 计算损失（MSE）
         diff = h_new - target
-        loss = float(np.mean(diff ** 2))
+        base_loss = float(np.mean(diff ** 2))
 
         # 反向传播：dL/dh_new = 2 * diff / dim
         dh = 2.0 * diff / self.dim
         grads, _ = self.backward(cache, dh)
 
-        # Adam参数更新
+        # 阶段17: 梯度处理（L2正则化 + 梯度监控裁剪）
+        params = {"W_z": self.W_z, "W_r": self.W_r, "W_h": self.W_h,
+                  "U_z": self.U_z, "U_r": self.U_r, "U_h": self.U_h,
+                  "b_z": self.b_z, "b_r": self.b_r, "b_h": self.b_h}
+        grads = self.training_loop.process_gradients(grads, params)
+
+        # 计算带正则化项的损失
+        loss = self.training_loop.compute_loss_with_penalty(base_loss, params)
+
+        # Adam参数更新（使用动态学习率）
         self._adam_update(grads)
 
         self.train_steps += 1
-        self.loss_history.append(loss)
+        self.loss_history.append(base_loss)
+        self.training_loop.record_train_loss(base_loss)
         # 限制loss_history长度
         if len(self.loss_history) > 1000:
             self.loss_history = self.loss_history[-500:]
@@ -226,20 +250,22 @@ class GRULayer:
 
     def reset(self):
         self.hidden = np.zeros(self.dim)
-        logger.debug("[GRULayer] 重置隐藏状态")
+        self.training_loop.reset()
+        logger.debug("[GRULayer] 重置隐藏状态和训练辅助")
 
     def get_train_stats(self) -> Dict:
-        """获取训练统计"""
+        """获取训练统计（阶段17: 包含训练辅助信息）"""
         if not self.loss_history:
             return {"train_steps": self.train_steps, "avg_loss": None,
-                    "last_loss": None}
+                    "last_loss": None, "training": self.training_loop.get_stats()}
         return {
             "train_steps": self.train_steps,
             "avg_loss": float(np.mean(self.loss_history)),
             "last_loss": float(self.loss_history[-1]),
             "loss_trend": float(np.mean(self.loss_history[-10:]) -
                                 np.mean(self.loss_history[-20:-10]))
-                if len(self.loss_history) >= 20 else 0.0
+                if len(self.loss_history) >= 20 else 0.0,
+            "training": self.training_loop.get_stats(),
         }
 
 
@@ -249,7 +275,8 @@ class TransformerLayer:
     实现完整的self-attention(QKV) + 前馈网络 + 反向传播训练
     """
 
-    def __init__(self, dim: int, horizon: int = 5, learning_rate: float = 0.005):
+    def __init__(self, dim: int, horizon: int = 5, learning_rate: float = 0.005,
+                 total_steps: int = 10000, l2_lambda: float = 1e-4):
         self.dim = dim
         self.horizon = horizon
         self.lr = learning_rate
@@ -276,7 +303,15 @@ class TransformerLayer:
         self.train_steps = 0
         self.loss_history: List[float] = []
         self._adam_init()
-        logger.info(f"[TransformerLayer] 初始化 dim={dim} horizon={horizon} (真实self-attention)")
+        # 阶段17: 训练辅助系统
+        self.training_loop = TrainingLoop(
+            initial_lr=learning_rate,
+            total_steps=total_steps,
+            l2_lambda=l2_lambda,
+            patience=200,
+            schedule_type="warmup_cosine"
+        )
+        logger.info(f"[TransformerLayer] 初始化 dim={dim} horizon={horizon} (真实self-attention+阶段17优化)")
 
     def _adam_init(self):
         """初始化Adam优化器状态"""
@@ -294,8 +329,9 @@ class TransformerLayer:
             self.adam_v[name] = np.zeros_like(param)
 
     def _adam_update(self, grads: Dict[str, np.ndarray]):
-        """Adam优化器参数更新"""
+        """Adam优化器参数更新（阶段17: 动态学习率）"""
         self.adam_t += 1
+        current_lr = self.training_loop.step_lr()
         for name, grad in grads.items():
             if grad is None:
                 continue
@@ -305,7 +341,7 @@ class TransformerLayer:
             m_hat = self.adam_m[name] / (1 - self.beta1 ** self.adam_t)
             v_hat = self.adam_v[name] / (1 - self.beta2 ** self.adam_t)
             param = getattr(self, name)
-            param -= self.lr * m_hat / (np.sqrt(v_hat) + self.eps)
+            param -= current_lr * m_hat / (np.sqrt(v_hat) + self.eps)
             setattr(self, name, _safe(param, -10.0, 10.0))
 
     def _layer_norm(self, x: np.ndarray, gamma: np.ndarray, beta: np.ndarray) -> Tuple[np.ndarray, Dict]:
@@ -440,7 +476,7 @@ class TransformerLayer:
         }
 
     def train_step(self, sequence: List[np.ndarray], target: np.ndarray) -> float:
-        """单步训练"""
+        """单步训练（阶段17: 集成正则化+梯度监控）"""
         if len(sequence) == 0:
             return 0.0
         seq_arr = np.array([_safe(s) for s in sequence])
@@ -451,7 +487,7 @@ class TransformerLayer:
         pred = _safe(context @ self.W_pred + self.b_pred)
         # 损失
         diff = pred - target
-        loss = float(np.mean(diff ** 2))
+        base_loss = float(np.mean(diff ** 2))
         # 反向
         dpred = 2.0 * diff / self.dim
         dW_pred = np.outer(context, dpred)
@@ -460,10 +496,18 @@ class TransformerLayer:
         grads = self._backward(cache, dcontext)
         grads["W_pred"] = dW_pred
         grads["b_pred"] = db_pred
+        # 阶段17: 梯度处理
+        params = {"W_q": self.W_q, "W_k": self.W_k, "W_v": self.W_v, "W_o": self.W_o,
+                  "W_f1": self.W_f1, "b_f1": self.b_f1, "W_f2": self.W_f2, "b_f2": self.b_f2,
+                  "ln_gamma": self.ln_gamma, "ln_beta": self.ln_beta,
+                  "W_pred": self.W_pred, "b_pred": self.b_pred}
+        grads = self.training_loop.process_gradients(grads, params)
+        loss = self.training_loop.compute_loss_with_penalty(base_loss, params)
         # 更新
         self._adam_update(grads)
         self.train_steps += 1
-        self.loss_history.append(loss)
+        self.loss_history.append(base_loss)
+        self.training_loop.record_train_loss(base_loss)
         if len(self.loss_history) > 1000:
             self.loss_history = self.loss_history[-500:]
         return loss
@@ -482,16 +526,18 @@ class TransformerLayer:
 
     def reset(self):
         self.history = []
-        logger.debug("[TransformerLayer] 重置历史")
+        self.training_loop.reset()
+        logger.debug("[TransformerLayer] 重置历史和训练辅助")
 
     def get_train_stats(self) -> Dict:
         if not self.loss_history:
             return {"train_steps": self.train_steps, "avg_loss": None,
-                    "last_loss": None}
+                    "last_loss": None, "training": self.training_loop.get_stats()}
         return {
             "train_steps": self.train_steps,
             "avg_loss": float(np.mean(self.loss_history)),
             "last_loss": float(self.loss_history[-1]),
+            "training": self.training_loop.get_stats(),
         }
 
 
@@ -501,7 +547,8 @@ class GNNLayer:
     实现图卷积(GCN) + 消息传递 + 反向传播训练
     """
 
-    def __init__(self, dim: int, learning_rate: float = 0.005):
+    def __init__(self, dim: int, learning_rate: float = 0.005,
+                 total_steps: int = 10000, l2_lambda: float = 1e-4):
         self.dim = dim
         self.lr = learning_rate
         scale = np.sqrt(2.0 / (dim + dim))
@@ -518,7 +565,15 @@ class GNNLayer:
         self._adam_init()
         self.train_steps = 0
         self.loss_history: List[float] = []
-        logger.info(f"[GNNLayer] 初始化 dim={dim} (真实图卷积GCN)")
+        # 阶段17: 训练辅助系统
+        self.training_loop = TrainingLoop(
+            initial_lr=learning_rate,
+            total_steps=total_steps,
+            l2_lambda=l2_lambda,
+            patience=200,
+            schedule_type="warmup_cosine"
+        )
+        logger.info(f"[GNNLayer] 初始化 dim={dim} (真实图卷积GCN+阶段17优化)")
 
     def _adam_init(self):
         self.adam_m = {}
@@ -533,7 +588,9 @@ class GNNLayer:
             self.adam_v[name] = np.zeros_like(param)
 
     def _adam_update(self, grads: Dict[str, np.ndarray]):
+        """Adam优化器参数更新（阶段17: 动态学习率）"""
         self.adam_t += 1
+        current_lr = self.training_loop.step_lr()
         for name, grad in grads.items():
             if grad is None:
                 continue
@@ -543,7 +600,7 @@ class GNNLayer:
             m_hat = self.adam_m[name] / (1 - self.beta1 ** self.adam_t)
             v_hat = self.adam_v[name] / (1 - self.beta2 ** self.adam_t)
             param = getattr(self, name)
-            param -= self.lr * m_hat / (np.sqrt(v_hat) + self.eps)
+            param -= current_lr * m_hat / (np.sqrt(v_hat) + self.eps)
             setattr(self, name, _safe(param, -10.0, 10.0))
 
     def _build_adjacency(self, nodes: List[str], edges: List[Tuple[str, str]]) -> np.ndarray:
@@ -621,7 +678,7 @@ class GNNLayer:
 
     def train_step(self, nodes: List[str], edges: List[Tuple[str, str]],
                    target: np.ndarray) -> float:
-        """单步训练"""
+        """单步训练（阶段17: 集成正则化+梯度监控）"""
         if not nodes:
             return 0.0
         target = _safe(target)
@@ -630,22 +687,29 @@ class GNNLayer:
         graph_repr = _safe(graph_repr)
         # 损失
         diff = graph_repr - target
-        loss = float(np.mean(diff ** 2))
+        base_loss = float(np.mean(diff ** 2))
         # 反向: dL/dgraph_repr
         dgraph = 2.0 * diff / self.dim
         # graph_repr = mean(H2), 所以 dH2 = dgraph / n (每个节点)
         dH2 = np.tile(dgraph, (H2.shape[0], 1)) / H2.shape[0]
         grads, dX = self._backward(cache, dH2)
-        # 更新节点嵌入（直接梯度下降）
+        # 阶段17: 梯度处理
+        params = {"W_g1": self.W_g1, "b_g1": self.b_g1,
+                  "W_g2": self.W_g2, "b_g2": self.b_g2}
+        grads = self.training_loop.process_gradients(grads, params)
+        loss = self.training_loop.compute_loss_with_penalty(base_loss, params)
+        # 更新节点嵌入（使用动态学习率）
+        current_lr = self.training_loop.get_current_lr()
         dX = _safe(dX, -1.0, 1.0)
         for i, node in enumerate(cache["nodes"]):
             if node in self.node_embeddings:
-                self.node_embeddings[node] -= self.lr * dX[i]
+                self.node_embeddings[node] -= current_lr * dX[i]
                 self.node_embeddings[node] = _safe(self.node_embeddings[node])
         # 更新GCN参数
         self._adam_update(grads)
         self.train_steps += 1
-        self.loss_history.append(loss)
+        self.loss_history.append(base_loss)
+        self.training_loop.record_train_loss(base_loss)
         if len(self.loss_history) > 1000:
             self.loss_history = self.loss_history[-500:]
         return loss
@@ -656,16 +720,18 @@ class GNNLayer:
 
     def reset(self):
         self.node_embeddings = {}
-        logger.debug("[GNNLayer] 重置节点嵌入")
+        self.training_loop.reset()
+        logger.debug("[GNNLayer] 重置节点嵌入和训练辅助")
 
     def get_train_stats(self) -> Dict:
         if not self.loss_history:
             return {"train_steps": self.train_steps, "avg_loss": None,
-                    "last_loss": None}
+                    "last_loss": None, "training": self.training_loop.get_stats()}
         return {
             "train_steps": self.train_steps,
             "avg_loss": float(np.mean(self.loss_history)),
             "last_loss": float(self.loss_history[-1]),
+            "training": self.training_loop.get_stats(),
         }
 
 
@@ -689,10 +755,16 @@ class MultiLevelPredictor:
         self.feature_dim = feature_dim
         # 阶段16: 使用配置中的学习率
         online_lr = config.get("optimizer", "online_learning_rate")
+        # 阶段17: 训练辅助参数
+        total_steps = config.get("optimizer", "total_training_steps", 10000)
+        l2_lambda = config.get("optimizer", "l2_lambda", 1e-4)
 
-        self.bottom = GRULayer(b_dim, learning_rate=online_lr)
-        self.middle = TransformerLayer(m_dim, self.horizon, learning_rate=online_lr * 0.5)
-        self.top = GNNLayer(t_dim, learning_rate=online_lr * 0.5)
+        self.bottom = GRULayer(b_dim, learning_rate=online_lr,
+                               total_steps=total_steps, l2_lambda=l2_lambda)
+        self.middle = TransformerLayer(m_dim, self.horizon, learning_rate=online_lr * 0.5,
+                                       total_steps=total_steps, l2_lambda=l2_lambda)
+        self.top = GNNLayer(t_dim, learning_rate=online_lr * 0.5,
+                            total_steps=total_steps, l2_lambda=l2_lambda)
 
         self.last_prediction: Optional[Prediction] = None
         self.last_perception: Optional[PerceptionState] = None
