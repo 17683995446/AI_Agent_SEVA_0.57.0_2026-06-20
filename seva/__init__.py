@@ -11,6 +11,7 @@
 阶段39: 会话持久化与恢复
 阶段40: 打包发布与安装脚本
 阶段41: 首次运行向导与引导系统
+阶段42: 智能命令补全与提示
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -71,6 +72,11 @@ from .persistence import (SessionManager, CheckpointHook,
 from .wizard import (FirstRunWizard, WizardState, GuidedTips,
                      run_wizard, check_first_run, show_tips,
                      reset_wizard)
+from .completion import (CommandCompleter, CommandHistory,
+                         ShellCompletionGenerator,
+                         suggest_command, complete_command,
+                         did_you_mean, get_command_help,
+                         levenshtein_distance, similarity_score)
 
 __all__ = [
     "Config",
@@ -138,6 +144,15 @@ __all__ = [
     "check_first_run",
     "show_tips",
     "reset_wizard",
+    "CommandCompleter",
+    "CommandHistory",
+    "ShellCompletionGenerator",
+    "suggest_command",
+    "complete_command",
+    "did_you_mean",
+    "get_command_help",
+    "levenshtein_distance",
+    "similarity_score",
 ]
 
-__version__ = "0.41.0"
+__version__ = "0.42.0"

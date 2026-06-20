@@ -784,6 +784,62 @@ def cmd_wizard(args):
     return 0
 
 
+def cmd_completion(args):
+    """seva completion: 生成Shell补全脚本（阶段42）"""
+    from .completion import ShellCompletionGenerator, CommandCompleter
+
+    if args.suggest:
+        # 拼写纠错建议
+        from .completion import did_you_mean
+        print(did_you_mean(args.suggest))
+        return 0
+
+    if args.list:
+        # 列出所有命令
+        completer = CommandCompleter()
+        commands = completer.get_all_commands()
+        print(f"\nSEVA可用命令 ({len(commands)}个):")
+        print("=" * 50)
+        for cmd in commands:
+            info = completer.get_command_info(cmd)
+            desc = info["description"] if info else ""
+            print(f"  {cmd:<15} {desc}")
+        return 0
+
+    if args.help_cmd:
+        # 获取命令帮助
+        from .completion import get_command_help
+        help_text = get_command_help(args.help_cmd)
+        if help_text:
+            print(help_text)
+        else:
+            print(f"未知命令: {args.help_cmd}")
+            from .completion import did_you_mean
+            print(did_you_mean(args.help_cmd))
+        return 0
+
+    # 生成补全脚本
+    shell = args.shell or "bash"
+    gen = ShellCompletionGenerator()
+
+    if shell == "bash":
+        script = gen.generate_bash()
+    elif shell == "zsh":
+        script = gen.generate_zsh()
+    else:
+        print(f"不支持的shell: {shell}，支持: bash, zsh")
+        return 1
+
+    if args.output:
+        with open(args.output, "w") as f:
+            f.write(script)
+        print(f"补全脚本已保存到: {args.output}")
+        print(f"安装方法: source {args.output}")
+    else:
+        print(script)
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -1222,6 +1278,24 @@ def build_parser():
     wizard_parser.add_argument("--tips", action="store_true",
                               help="显示使用提示")
     wizard_parser.set_defaults(func=cmd_wizard)
+
+    # 阶段42: completion命令 - Shell补全与命令提示
+    completion_parser = subparsers.add_parser("completion",
+                                              help="生成Shell补全脚本")
+    completion_parser.add_argument("--shell", type=str, default="bash",
+                                  choices=["bash", "zsh"],
+                                  help="Shell类型 (默认: bash)")
+    completion_parser.add_argument("--output", type=str, default=None,
+                                  help="输出文件路径")
+    completion_parser.add_argument("--suggest", type=str, default=None,
+                                  help="拼写纠错建议")
+    completion_parser.add_argument("--list", action="store_true",
+                                  help="列出所有命令")
+    completion_parser.add_argument("--help-cmd", type=str, default=None,
+                                  dest="help_cmd",
+                                  help="获取命令帮助")
+
+    completion_parser.set_defaults(func=cmd_completion)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")
