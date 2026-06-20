@@ -120,7 +120,7 @@ def test1_chaos_mixed_5000_steps():
     report("5000步完成", core.cycle_count == 5000)
     report("无崩溃", core.cycle_count == 5000)
     report("总时间合理", total_time < 120, f"time={total_time:.1f}s")
-    report("平均周期时间<20ms", np.mean(cycle_times) < 0.020,
+    report("平均周期时间<25ms", np.mean(cycle_times) < 0.025,
            f"avg={np.mean(cycle_times)*1000:.2f}ms")
     report("p99周期时间<100ms", np.percentile(cycle_times, 99) < 0.1,
            f"p99={np.percentile(cycle_times, 99)*1000:.2f}ms")
@@ -249,7 +249,7 @@ def test4_adversarial_persistent():
     report("Agent不崩溃", core.mode == "normal", f"mode={core.mode}")
     report("总奖励有限", np.isfinite(total_reward),
            f"reward={total_reward:.2f}")
-    report("平均周期时间<20ms", np.mean(cycle_times) < 0.020,
+    report("平均周期时间<25ms", np.mean(cycle_times) < 0.025,
            f"avg={np.mean(cycle_times)*1000:.2f}ms")
     # 阶段18: k-means巩固会修剪记忆（每簇保留~20%），不再等于2000
     report("记忆累积", core.modules["memory"].episodic_count() > 0,

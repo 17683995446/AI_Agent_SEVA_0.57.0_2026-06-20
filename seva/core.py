@@ -65,6 +65,10 @@ class SelfEvolvingAgentCore:
         self.mode = "normal"  # normal/circuit_breaker/safe_fallback
         self.last_cycle_log: List[Dict] = []
 
+        # 阶段24: 环境引用（可选）
+        self.environment: Optional[Any] = None
+        self._env_done: bool = False
+
         # 指标采集
         self.metrics = {
             "total_reward": 0.0,
@@ -76,6 +80,17 @@ class SelfEvolvingAgentCore:
         }
 
         logger.info("[Core] 初始化完成，9个模块就绪")
+
+    def attach_environment(self, environment: Any):
+        """阶段24: 附加仿真环境，启用真实环境闭环"""
+        self.environment = environment
+        self._env_done = False
+        logger.info("[Core] 环境已附加，启用真实环境闭环")
+
+    def detach_environment(self):
+        """分离环境，回退到伪reward模式"""
+        self.environment = None
+        logger.info("[Core] 环境已分离")
 
     def initialize(self):
         """初始化（注册消息总线订阅等）"""
@@ -170,7 +185,9 @@ class SelfEvolvingAgentCore:
             # ===== 阶段7：执行 =====
             t0 = time.time()
             if review.is_approved:
-                exec_result = self.modules["executor"].execute(action)
+                # 阶段24: 传递环境给执行器，获取真实reward和下一观测
+                exec_result = self.modules["executor"].execute(
+                    action, environment=self.environment)
                 actual_reward = exec_result.get("reward", 0.0)
             else:
                 # 被否决，执行安全fallback
@@ -181,13 +198,25 @@ class SelfEvolvingAgentCore:
                     expected_reward=0.0,
                     source="safe_fallback"
                 )
-                exec_result = self.modules["executor"].execute(fallback_action)
-                actual_reward = 0.0
+                exec_result = self.modules["executor"].execute(
+                    fallback_action, environment=self.environment)
+                actual_reward = exec_result.get("reward", 0.0)
                 action = fallback_action
+
+            # 阶段24: 用环境观测作为下一周期输入
+            next_obs = exec_result.get("next_observation")
+            if next_obs is not None:
+                self._pending_input = next_obs
+            # 环境结束时标记
+            if exec_result.get("env_done"):
+                self._env_done = True
+
             cycle_log.append({"stage": "executor", "time": time.time()-t0,
                               "result": {"success": exec_result["success"],
-                                         "reward": actual_reward}})
-            logger.debug(f"[Core] 阶段7执行完成 time={time.time()-t0:.4f}s")
+                                         "reward": actual_reward,
+                                         "env_connected": self.environment is not None}})
+            logger.debug(f"[Core] 阶段7执行完成 time={time.time()-t0:.4f}s "
+                         f"reward={actual_reward:.3f}")
 
             # ===== 阶段8：误差评估 =====
             t0 = time.time()
@@ -331,6 +360,40 @@ class SelfEvolvingAgentCore:
         """执行周期并返回动作（用于测试）"""
         self.run_cycle()
         return self.modules["decision_maker"].get_last_action()
+
+    def run_with_environment(self, environment: Any, num_steps: int,
+                             reset: bool = True) -> Dict[str, Any]:
+        """
+        阶段24: 附带环境运行多个周期
+        - 自动附加环境、注入初始观测、运行num_steps步
+        - 返回统计信息（总reward、平均reward、动作分布等）
+        """
+        self.attach_environment(environment)
+        if reset:
+            obs = environment.reset()
+            self.inject_input(obs)
+
+        rewards = []
+        actions = []
+        for _ in range(num_steps):
+            if self._env_done:
+                break
+            result = self.run_cycle()
+            rewards.append(result.get("time", 0))  # placeholder
+            action = self.modules["decision_maker"].get_last_action()
+            actions.append(action.type.value if action else "unknown")
+
+        # 从executor获取真实reward统计
+        exec_stats = self.modules["executor"].get_stats()
+        return {
+            "steps_completed": self.cycle_count,
+            "total_real_reward": exec_stats.get("total_real_reward", 0.0),
+            "env_done": self._env_done,
+            "action_distribution": dict(zip(
+                *np.unique(actions, return_counts=True)
+            )) if actions else {},
+            "env_state": environment.get_state() if hasattr(environment, "get_state") else {},
+        }
 
     def get_metrics(self) -> Dict[str, Any]:
         """获取指标"""
