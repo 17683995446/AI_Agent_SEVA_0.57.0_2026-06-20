@@ -6,6 +6,7 @@
 阶段34: 预设场景与开箱即用
 阶段35: 配置文件支持
 阶段36: 交互式REPL Shell
+阶段37: Web Dashboard可视化
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -20,6 +21,9 @@
 
     from seva import run_shell
     run_shell()  # 启动交互式Shell
+
+    from seva import start_dashboard
+    start_dashboard(agent, port=8080)  # 启动Web Dashboard
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -39,6 +43,8 @@ from .config_io import (save_config, load_config, config_from_file,
                         merge_configs, validate_config_file,
                         ConfigLoader, ConfigWizard)
 from .shell import SevaShell, run_shell, execute_command
+from .web_dashboard import (WebDashboard, start_dashboard,
+                            generate_html_report)
 
 __all__ = [
     "Config",
@@ -82,6 +88,9 @@ __all__ = [
     "SevaShell",
     "run_shell",
     "execute_command",
+    "WebDashboard",
+    "start_dashboard",
+    "generate_html_report",
 ]
 
-__version__ = "0.36.0"
+__version__ = "0.37.0"

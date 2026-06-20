@@ -50,6 +50,8 @@ from .config_io import (save_config, load_config, config_from_file,
                         merge_configs, validate_config_file,
                         ConfigLoader, ConfigWizard)
 from .shell import SevaShell, run_shell, execute_command
+from .web_dashboard import (WebDashboard, start_dashboard,
+                            generate_html_report)
 
 
 def cmd_run(args):
@@ -508,6 +510,43 @@ def cmd_exec(args):
     print(output, end="")
     return 0
 
+
+def cmd_web(args):
+    """seva web: 启动Web Dashboard"""
+    print(f"\n启动SEVA Web Dashboard")
+    print(f"  预设: {args.preset}")
+    print(f"  地址: http://{args.host}:{args.port}")
+    print(f"  按Ctrl+C停止")
+    print("="*50)
+
+    agent = SEVAFactory.create(args.preset)
+    # 先运行几步产生数据
+    if args.steps > 0:
+        print(f"运行 {args.steps} 步产生初始数据...")
+        run(agent, steps=args.steps)
+
+    start_dashboard(agent=agent, host=args.host, port=args.port,
+                    blocking=True)
+    return 0
+
+
+def cmd_report(args):
+    """seva report: 生成HTML报告"""
+    print(f"\n生成SEVA HTML报告")
+    print("="*50)
+
+    agent = SEVAFactory.create(args.preset)
+    if args.steps > 0:
+        print(f"运行 {args.steps} 步采集数据...")
+        run(agent, steps=args.steps)
+
+    output = args.output or "seva_report.html"
+    generate_html_report(agent, output)
+    print(f"\n报告已生成: {output}")
+    print(f"可在浏览器中打开查看")
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -810,6 +849,30 @@ def build_parser():
     exec_parser.add_argument("--seed", type=int, default=42,
                             help="随机种子 (默认: 42)")
     exec_parser.set_defaults(func=cmd_exec)
+
+    # 阶段37: web命令 - 启动Web Dashboard
+    web_parser = subparsers.add_parser("web", help="启动Web Dashboard")
+    web_parser.add_argument("--host", type=str, default="localhost",
+                           help="监听地址 (默认: localhost)")
+    web_parser.add_argument("--port", type=int, default=8080,
+                           help="监听端口 (默认: 8080)")
+    web_parser.add_argument("--preset", type=str, default="easy",
+                           choices=PresetConfigs.list_presets(),
+                           help="预设模板 (默认: easy)")
+    web_parser.add_argument("--steps", type=int, default=10,
+                           help="启动前运行步数 (默认: 10)")
+    web_parser.set_defaults(func=cmd_web)
+
+    # 阶段37: report命令 - 生成HTML报告
+    report_parser = subparsers.add_parser("report", help="生成HTML报告")
+    report_parser.add_argument("--output", type=str, default=None,
+                              help="输出文件路径 (默认: seva_report.html)")
+    report_parser.add_argument("--preset", type=str, default="easy",
+                              choices=PresetConfigs.list_presets(),
+                              help="预设模板 (默认: easy)")
+    report_parser.add_argument("--steps", type=int, default=50,
+                              help="报告前运行步数 (默认: 50)")
+    report_parser.set_defaults(func=cmd_report)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")
