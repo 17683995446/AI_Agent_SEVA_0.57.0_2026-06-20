@@ -630,6 +630,110 @@ def cmd_compare(args):
     return 0
 
 
+def cmd_session(args):
+    """seva session: 会话持久化管理（阶段39）"""
+    from .persistence import (SessionManager, save_session, load_session,
+                              list_sessions, delete_session,
+                              get_session_info)
+
+    action = args.action
+
+    if action == "save":
+        print(f"\n保存SEVA会话")
+        print("=" * 50)
+        agent = SEVAFactory.create(args.preset)
+        if args.steps > 0:
+            print(f"运行 {args.steps} 步采集数据...")
+            run(agent, steps=args.steps)
+        path = save_session(agent, args.output)
+        print(f"\n会话已保存: {path}")
+        print(f"周期数: {agent.cycle_count}")
+        return 0
+
+    elif action == "load":
+        print(f"\n加载SEVA会话")
+        print("=" * 50)
+        if not args.input:
+            print("错误: 需要 --input 指定会话文件")
+            return 1
+        agent = load_session(args.input)
+        print(f"\n会话已加载: {args.input}")
+        print(f"周期数: {agent.cycle_count}")
+        print(f"运行模式: {agent.mode}")
+        return 0
+
+    elif action == "list":
+        print(f"\n已保存的会话")
+        print("=" * 50)
+        directory = args.directory or "."
+        sessions = list_sessions(directory)
+        if not sessions:
+            print(f"目录 {directory} 中无会话文件")
+            return 0
+        print(f"{'名称':<40} {'周期数':<10} {'大小':<10} {'修改时间'}")
+        print("-" * 80)
+        for s in sessions:
+            ts = time.strftime("%Y-%m-%d %H:%M:%S",
+                               time.localtime(s["modified"]))
+            size_kb = s["size"] / 1024
+            print(f"{s['name']:<40} {s['cycle_count']:<10} "
+                  f"{size_kb:.1f}KB    {ts}")
+        return 0
+
+    elif action == "info":
+        print(f"\n会话信息")
+        print("=" * 50)
+        if not args.input:
+            print("错误: 需要 --input 指定会话文件")
+            return 1
+        info = get_session_info(args.input)
+        print(f"文件: {info['file_path']}")
+        print(f"大小: {info['file_size'] / 1024:.1f} KB")
+        meta = info.get("meta", {})
+        print(f"版本: {meta.get('version', 'unknown')}")
+        print(f"预设: {meta.get('preset', 'unknown')}")
+        ts = meta.get("timestamp", 0)
+        if ts:
+            ts_str = time.strftime("%Y-%m-%d %H:%M:%S",
+                                   time.localtime(ts))
+            print(f"保存时间: {ts_str}")
+        runtime = info.get("runtime", {})
+        print(f"周期数: {runtime.get('cycle_count', 0)}")
+        print(f"运行模式: {runtime.get('mode', 'unknown')}")
+        return 0
+
+    elif action == "delete":
+        print(f"\n删除会话")
+        print("=" * 50)
+        if not args.input:
+            print("错误: 需要 --input 指定会话文件")
+            return 1
+        if delete_session(args.input):
+            print(f"已删除: {args.input}")
+            return 0
+        else:
+            print(f"文件不存在: {args.input}")
+            return 1
+
+    elif action == "checkpoint":
+        print(f"\n创建检查点")
+        print("=" * 50)
+        agent = SEVAFactory.create(args.preset)
+        if args.steps > 0:
+            print(f"运行 {args.steps} 步...")
+            run(agent, steps=args.steps)
+        from .persistence import checkpoint as ckpt
+        directory = args.directory or "./checkpoints"
+        path = ckpt(agent, directory=directory, max_keep=args.max_keep)
+        print(f"\n检查点已创建: {path}")
+        return 0
+
+    else:
+        print(f"未知操作: {action}")
+        print("可用操作: save, load, list, info, delete, checkpoint")
+        return 1
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -998,6 +1102,55 @@ def build_parser():
     compare_parser.add_argument("--output", type=str, default=None,
                                help="输出文件路径 (默认: seva_comparison.<ext>)")
     compare_parser.set_defaults(func=cmd_compare)
+
+    # 阶段39: session命令 - 会话持久化管理
+    session_parser = subparsers.add_parser("session", help="会话持久化管理")
+    session_sub = session_parser.add_subparsers(dest="action")
+
+    # session save
+    sp_save = session_sub.add_parser("save", help="保存会话")
+    sp_save.add_argument("--output", type=str, default=None,
+                         help="输出文件路径")
+    sp_save.add_argument("--preset", type=str, default="easy",
+                         choices=PresetConfigs.list_presets(),
+                         help="预设模板 (默认: easy)")
+    sp_save.add_argument("--steps", type=int, default=50,
+                         help="保存前运行步数 (默认: 50)")
+
+    # session load
+    sp_load = session_sub.add_parser("load", help="加载会话")
+    sp_load.add_argument("--input", type=str, required=True,
+                         help="会话文件路径")
+
+    # session list
+    sp_list = session_sub.add_parser("list", help="列出会话")
+    sp_list.add_argument("--directory", type=str, default=None,
+                         help="目录路径 (默认: 当前目录)")
+
+    # session info
+    sp_info = session_sub.add_parser("info", help="查看会话信息")
+    sp_info.add_argument("--input", type=str, required=True,
+                         help="会话文件路径")
+
+    # session delete
+    sp_del = session_sub.add_parser("delete", help="删除会话")
+    sp_del.add_argument("--input", type=str, required=True,
+                        help="会话文件路径")
+
+    # session checkpoint
+    sp_ckpt = session_sub.add_parser("checkpoint", help="创建检查点")
+    sp_ckpt.add_argument("--preset", type=str, default="easy",
+                         choices=PresetConfigs.list_presets(),
+                         help="预设模板 (默认: easy)")
+    sp_ckpt.add_argument("--steps", type=int, default=50,
+                         help="检查点前运行步数 (默认: 50)")
+    sp_ckpt.add_argument("--directory", type=str, default=None,
+                         help="保存目录 (默认: ./checkpoints)")
+    sp_ckpt.add_argument("--max-keep", type=int, default=0,
+                         dest="max_keep",
+                         help="保留最近N个检查点 (0=不限制)")
+
+    session_parser.set_defaults(func=cmd_session)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")

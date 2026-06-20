@@ -8,6 +8,7 @@
 阶段36: 交互式REPL Shell
 阶段37: Web Dashboard可视化
 阶段38: 结果可视化与报告导出
+阶段39: 会话持久化与恢复
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -29,6 +30,10 @@
     from seva import visualize, export_report, generate_charts
     visualize(agent, "html", "report.html")  # 导出HTML报告
     generate_charts(agent, "./charts/")       # 生成SVG图表
+
+    from seva import save_session, load_session
+    save_session(agent, "my_session.json")  # 保存会话
+    agent2 = load_session("my_session.json")  # 恢复会话
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -53,6 +58,10 @@ from .web_dashboard import (WebDashboard, start_dashboard,
 from .visualization import (ResultVisualizer, SVGChartGenerator,
                             visualize, export_report,
                             generate_charts, compare_runs)
+from .persistence import (SessionManager, CheckpointHook,
+                          save_session, load_session,
+                          list_sessions, delete_session,
+                          get_session_info, checkpoint)
 
 __all__ = [
     "Config",
@@ -105,6 +114,14 @@ __all__ = [
     "export_report",
     "generate_charts",
     "compare_runs",
+    "SessionManager",
+    "CheckpointHook",
+    "save_session",
+    "load_session",
+    "list_sessions",
+    "delete_session",
+    "get_session_info",
+    "checkpoint",
 ]
 
-__version__ = "0.38.0"
+__version__ = "0.39.0"
