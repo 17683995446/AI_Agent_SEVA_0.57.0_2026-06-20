@@ -1318,6 +1318,77 @@ def cmd_help(args):
     return 0
 
 
+def cmd_i18n(args):
+    """seva i18n: 国际化与多语言支持（阶段47）"""
+    from .i18n import (I18n, set_language, get_language, list_languages,
+                       get_i18n_stats, get_i18n_report, t,
+                       list_translation_keys, get_catalog,
+                       SUPPORTED_LANGUAGES)
+
+    if args.set:
+        if set_language(args.set):
+            print(f"已切换语言: {args.set}")
+            print(f"  {t('welcome')}")
+            return 0
+        else:
+            print(f"不支持的语言: {args.set}")
+            print(f"支持的语言: {', '.join(list_languages())}")
+            return 1
+
+    if args.list:
+        langs = list_languages()
+        current = get_language()
+        print(f"\n支持的语言 ({len(langs)}个):")
+        print("=" * 50)
+        for lang in langs:
+            marker = " *" if lang == current else "  "
+            catalog = get_catalog(lang)
+            count = len(catalog) if catalog else 0
+            print(f"{marker} {lang} ({count}条翻译)")
+        print()
+        return 0
+
+    if args.keys:
+        keys = list_translation_keys(args.keys if args.keys != "all" else None)
+        print(f"\n翻译键 ({len(keys)}个):")
+        print("=" * 50)
+        for k in sorted(keys):
+            print(f"  {k} = {t(k)}")
+        return 0
+
+    if args.translate:
+        text = t(args.translate)
+        print(f"{args.translate} = {text}")
+        return 0
+
+    if args.report:
+        print(get_i18n_report())
+        return 0
+
+    if args.stats:
+        stats = get_i18n_stats()
+        print(f"\n国际化统计:")
+        print("=" * 50)
+        print(f"当前语言: {stats['current_language']}")
+        print(f"回退语言: {stats['fallback_language']}")
+        print(f"支持语言: {', '.join(stats['supported_languages'])}")
+        print(f"\n翻译目录:")
+        for lang, size in stats["catalog_sizes"].items():
+            print(f"  {lang}: {size}条")
+        return 0
+
+    # 默认显示当前语言和报告
+    print(f"当前语言: {get_language()}")
+    print(f"回退语言: {I18n().get_fallback()}")
+    print(f"\n示例翻译:")
+    for key in ["welcome", "cmd.run", "msg.agent_created", "tip.first_run"]:
+        print(f"  {key} = {t(key)}")
+    print(f"\n使用 --list 查看所有支持的语言")
+    print(f"使用 --set <lang> 切换语言")
+    print(f"使用 --report 查看完整报告")
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -1875,6 +1946,23 @@ def build_parser():
     help_parser.add_argument("--term", type=str, default=None,
                              help="查看指定术语")
     help_parser.set_defaults(func=cmd_help)
+
+    # 阶段47: i18n命令 - 国际化与多语言支持
+    i18n_parser = subparsers.add_parser("i18n", help="国际化与多语言支持")
+    i18n_parser.add_argument("--set", type=str, default=None,
+                             help="设置当前语言 (如 zh_CN/en_US/ja_JP)")
+    i18n_parser.add_argument("--list", action="store_true",
+                             help="列出所有支持的语言")
+    i18n_parser.add_argument("--keys", type=str, nargs="?",
+                             const="all", default=None,
+                             help="列出翻译键 (可选指定语言)")
+    i18n_parser.add_argument("--translate", type=str, default=None,
+                             help="翻译指定键")
+    i18n_parser.add_argument("--report", action="store_true",
+                             help="查看i18n报告")
+    i18n_parser.add_argument("--stats", action="store_true",
+                             help="查看统计信息")
+    i18n_parser.set_defaults(func=cmd_i18n)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")

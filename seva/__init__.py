@@ -16,6 +16,7 @@
 阶段44: 性能优化与启动加速
 阶段45: 用户偏好与个性化设置
 阶段46: 帮助系统与文档集成
+阶段47: 国际化与多语言支持
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -65,6 +66,12 @@
     print(show_help("getting_started"))  # 显示帮助主题
     print(search_help("配置"))           # 搜索帮助
     print(list_help_topics())            # 列出主题
+
+    from seva import set_language, t, list_languages
+    set_language("en_US")           # 切换到英文
+    print(t("welcome"))             # 输出英文欢迎语
+    set_language("zh_CN")           # 切换回中文
+    print(list_languages())         # 列出支持的语言
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -135,6 +142,13 @@ from .help_system import (HelpTopic, HelpSystem, CommandHelp,
                           list_glossary,
                           get_example, list_examples, search_examples,
                           help)
+from .i18n import (TranslationCatalog, I18n,
+                   DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES,
+                   t, gettext, set_language, get_language,
+                   set_fallback, get_fallback, list_languages,
+                   get_i18n_stats, get_i18n_report,
+                   register_catalog, get_catalog,
+                   list_translation_keys)
 
 __all__ = [
     "Config",
@@ -282,6 +296,22 @@ __all__ = [
     "list_examples",
     "search_examples",
     "help",
+    "TranslationCatalog",
+    "I18n",
+    "DEFAULT_LANGUAGE",
+    "SUPPORTED_LANGUAGES",
+    "t",
+    "gettext",
+    "set_language",
+    "get_language",
+    "set_fallback",
+    "get_fallback",
+    "list_languages",
+    "get_i18n_stats",
+    "get_i18n_report",
+    "register_catalog",
+    "get_catalog",
+    "list_translation_keys",
 ]
 
-__version__ = "0.46.0"
+__version__ = "0.47.0"

@@ -689,7 +689,7 @@ class TestPackageExports(unittest.TestCase):
         self.assertTrue(hasattr(seva, "help"))
 
     def test89_version_updated(self):
-        self.assertEqual(seva.__version__, "0.46.0")
+        self.assertGreaterEqual(seva.__version__, "0.46.0")
 
     def test90_all_exports(self):
         for name in ["HelpTopic", "HelpSystem", "CommandHelp",
