@@ -49,6 +49,7 @@ from .scenarios import (Scenario, PresetScenarios, ScenarioRunner,
 from .config_io import (save_config, load_config, config_from_file,
                         merge_configs, validate_config_file,
                         ConfigLoader, ConfigWizard)
+from .shell import SevaShell, run_shell, execute_command
 
 
 def cmd_run(args):
@@ -487,6 +488,26 @@ def _scenario_run_all(args):
     return 0 if passed == len(results) else 1
 
 
+def cmd_shell(args):
+    """seva shell: 启动交互式Shell"""
+    print(f"\n启动SEVA交互式Shell (preset={args.preset}, env={args.env_type})")
+    return run_shell(preset=args.preset, env_type=args.env_type,
+                     seed=args.seed)
+
+
+def cmd_exec(args):
+    """seva exec: 执行单条Shell命令（非交互式）"""
+    command = " ".join(args.command) if args.command else ""
+    if not command:
+        print("用法: seva exec <command>")
+        print("示例: seva exec status")
+        print("      seva exec 'run 10'")
+        return 1
+    output = execute_command(command, preset=args.preset,
+                             env_type=args.env_type, seed=args.seed)
+    print(output, end="")
+    return 0
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -764,6 +785,31 @@ def build_parser():
     list_scn_parser = scenario_sub.add_parser("list",
                                                help="列出所有场景")
     scenario_parser.set_defaults(func=cmd_scenario)
+
+    # 阶段36: shell命令 - 启动交互式Shell
+    shell_parser = subparsers.add_parser("shell", help="启动交互式Shell")
+    shell_parser.add_argument("--preset", type=str, default="easy",
+                             choices=PresetConfigs.list_presets(),
+                             help="预设模板 (默认: easy)")
+    shell_parser.add_argument("--env-type", type=str, default="mixed",
+                             choices=["blank", "mixed", "drift", "adversarial"],
+                             help="环境类型 (默认: mixed)")
+    shell_parser.add_argument("--seed", type=int, default=42,
+                             help="随机种子 (默认: 42)")
+    shell_parser.set_defaults(func=cmd_shell)
+
+    # 阶段36: exec命令 - 执行单条Shell命令
+    exec_parser = subparsers.add_parser("exec", help="执行单条Shell命令")
+    exec_parser.add_argument("command", nargs="*", help="要执行的命令")
+    exec_parser.add_argument("--preset", type=str, default="easy",
+                            choices=PresetConfigs.list_presets(),
+                            help="预设模板 (默认: easy)")
+    exec_parser.add_argument("--env-type", type=str, default="mixed",
+                            choices=["blank", "mixed", "drift", "adversarial"],
+                            help="环境类型 (默认: mixed)")
+    exec_parser.add_argument("--seed", type=int, default=42,
+                            help="随机种子 (默认: 42)")
+    exec_parser.set_defaults(func=cmd_exec)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")

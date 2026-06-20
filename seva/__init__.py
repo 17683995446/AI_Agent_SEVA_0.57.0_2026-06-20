@@ -5,6 +5,7 @@
 阶段29: 统一API入口
 阶段34: 预设场景与开箱即用
 阶段35: 配置文件支持
+阶段36: 交互式REPL Shell
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -16,6 +17,9 @@
     from seva import save_config, load_config, config_from_file
     save_config(agent.config, "my_config.yaml")  # 保存配置
     agent = config_from_file("my_config.yaml")   # 从文件创建Agent
+
+    from seva import run_shell
+    run_shell()  # 启动交互式Shell
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -34,6 +38,7 @@ from .scenarios import (Scenario, PresetScenarios, ScenarioRunner,
 from .config_io import (save_config, load_config, config_from_file,
                         merge_configs, validate_config_file,
                         ConfigLoader, ConfigWizard)
+from .shell import SevaShell, run_shell, execute_command
 
 __all__ = [
     "Config",
@@ -74,6 +79,9 @@ __all__ = [
     "validate_config_file",
     "ConfigLoader",
     "ConfigWizard",
+    "SevaShell",
+    "run_shell",
+    "execute_command",
 ]
 
-__version__ = "0.35.0"
+__version__ = "0.36.0"
