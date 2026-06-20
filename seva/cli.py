@@ -840,6 +840,66 @@ def cmd_completion(args):
     return 0
 
 
+def cmd_tutorial(args):
+    """seva tutorial: 交互式教程（阶段43）"""
+    from .tutorial import (run_tutorial, list_tutorials,
+                           get_tutorial_info, reset_tutorial_progress,
+                           get_tutorial_progress, TutorialProgress)
+
+    if args.list:
+        tutorials = list_tutorials()
+        print(f"\nSEVA可用教程 ({len(tutorials)}个):")
+        print("=" * 60)
+        for t in tutorials:
+            status = "✓ 已完成" if t["completed"] else \
+                     f"进行中({t['current_step']}/{t['steps']})"
+            print(f"\n  [{t['id']}] {t['title']}")
+            print(f"    难度: {t['difficulty']}")
+            print(f"    描述: {t['description']}")
+            print(f"    步骤: {t['steps']}步")
+            print(f"    状态: {status}")
+        print()
+        return 0
+
+    if args.reset:
+        if args.tutorial_id:
+            reset_tutorial_progress(args.tutorial_id)
+            print(f"已重置教程进度: {args.tutorial_id}")
+        else:
+            reset_tutorial_progress()
+            print("已重置所有教程进度")
+        return 0
+
+    if args.progress:
+        if not args.tutorial_id:
+            print("错误: 需要 --tutorial-id 指定教程")
+            return 1
+        progress = get_tutorial_progress(args.tutorial_id)
+        print(f"\n教程进度: {args.tutorial_id}")
+        print("=" * 50)
+        print(f"已完成步骤: {len(progress.get('completed_steps', []))}")
+        print(f"当前步骤: {progress.get('current_step', 0)}")
+        print(f"已完成: {'是' if progress.get('completed') else '否'}")
+        return 0
+
+    if not args.tutorial_id:
+        print("错误: 需要指定教程ID")
+        print("使用 --list 查看可用教程")
+        return 1
+
+    info = get_tutorial_info(args.tutorial_id)
+    if info is None:
+        print(f"未找到教程: {args.tutorial_id}")
+        print("使用 --list 查看可用教程")
+        return 1
+
+    interactive = not args.silent
+    resume = not args.no_resume
+    completed = run_tutorial(args.tutorial_id, interactive=interactive,
+                             resume=resume)
+    return 0 if completed else 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -1296,6 +1356,24 @@ def build_parser():
                                   help="获取命令帮助")
 
     completion_parser.set_defaults(func=cmd_completion)
+
+    # 阶段43: tutorial命令 - 交互式教程
+    tutorial_parser = subparsers.add_parser("tutorial", help="交互式教程")
+    tutorial_parser.add_argument("tutorial_id", type=str, nargs="?",
+                                 default=None,
+                                 help="教程ID (beginner/intermediate/advanced)")
+    tutorial_parser.add_argument("--list", action="store_true",
+                                 help="列出所有教程")
+    tutorial_parser.add_argument("--silent", action="store_true",
+                                 help="静默模式（非交互）")
+    tutorial_parser.add_argument("--no-resume", action="store_true",
+                                 dest="no_resume",
+                                 help="不恢复进度，从头开始")
+    tutorial_parser.add_argument("--reset", action="store_true",
+                                 help="重置教程进度")
+    tutorial_parser.add_argument("--progress", action="store_true",
+                                 help="查看教程进度")
+    tutorial_parser.set_defaults(func=cmd_tutorial)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")

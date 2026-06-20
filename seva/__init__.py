@@ -12,6 +12,7 @@
 阶段40: 打包发布与安装脚本
 阶段41: 首次运行向导与引导系统
 阶段42: 智能命令补全与提示
+阶段43: 交互式教程系统
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -77,6 +78,10 @@ from .completion import (CommandCompleter, CommandHistory,
                          suggest_command, complete_command,
                          did_you_mean, get_command_help,
                          levenshtein_distance, similarity_score)
+from .tutorial import (Tutorial, TutorialStep, TutorialProgress,
+                       run_tutorial, list_tutorials,
+                       get_tutorial_info, reset_tutorial_progress,
+                       get_tutorial_progress)
 
 __all__ = [
     "Config",
@@ -153,6 +158,14 @@ __all__ = [
     "get_command_help",
     "levenshtein_distance",
     "similarity_score",
+    "Tutorial",
+    "TutorialStep",
+    "TutorialProgress",
+    "run_tutorial",
+    "list_tutorials",
+    "get_tutorial_info",
+    "reset_tutorial_progress",
+    "get_tutorial_progress",
 ]
 
-__version__ = "0.42.0"
+__version__ = "0.43.0"
