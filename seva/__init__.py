@@ -7,6 +7,7 @@
 阶段35: 配置文件支持
 阶段36: 交互式REPL Shell
 阶段37: Web Dashboard可视化
+阶段38: 结果可视化与报告导出
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -24,6 +25,10 @@
 
     from seva import start_dashboard
     start_dashboard(agent, port=8080)  # 启动Web Dashboard
+
+    from seva import visualize, export_report, generate_charts
+    visualize(agent, "html", "report.html")  # 导出HTML报告
+    generate_charts(agent, "./charts/")       # 生成SVG图表
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -45,6 +50,9 @@ from .config_io import (save_config, load_config, config_from_file,
 from .shell import SevaShell, run_shell, execute_command
 from .web_dashboard import (WebDashboard, start_dashboard,
                             generate_html_report)
+from .visualization import (ResultVisualizer, SVGChartGenerator,
+                            visualize, export_report,
+                            generate_charts, compare_runs)
 
 __all__ = [
     "Config",
@@ -91,6 +99,12 @@ __all__ = [
     "WebDashboard",
     "start_dashboard",
     "generate_html_report",
+    "ResultVisualizer",
+    "SVGChartGenerator",
+    "visualize",
+    "export_report",
+    "generate_charts",
+    "compare_runs",
 ]
 
-__version__ = "0.37.0"
+__version__ = "0.38.0"

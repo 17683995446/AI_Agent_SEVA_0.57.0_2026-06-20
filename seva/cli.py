@@ -531,8 +531,8 @@ def cmd_web(args):
 
 
 def cmd_report(args):
-    """seva report: 生成HTML报告"""
-    print(f"\n生成SEVA HTML报告")
+    """seva report: 生成HTML报告（阶段38增强：支持多格式）"""
+    print(f"\n生成SEVA报告")
     print("="*50)
 
     agent = SEVAFactory.create(args.preset)
@@ -540,10 +540,93 @@ def cmd_report(args):
         print(f"运行 {args.steps} 步采集数据...")
         run(agent, steps=args.steps)
 
-    output = args.output or "seva_report.html"
-    generate_html_report(agent, output)
-    print(f"\n报告已生成: {output}")
-    print(f"可在浏览器中打开查看")
+    fmt = getattr(args, "format", "html") or "html"
+    output = args.output
+
+    if fmt == "html" and not output:
+        output = "seva_report.html"
+    elif fmt == "json" and not output:
+        output = "seva_report.json"
+    elif fmt == "csv" and not output:
+        output = "seva_report.csv"
+    elif fmt == "markdown" and not output:
+        output = "seva_report.md"
+    elif fmt == "txt" and not output:
+        output = "seva_report.txt"
+
+    from .visualization import visualize
+    content = visualize(agent, fmt, output)
+    print(f"\n报告已生成: {output} (格式: {fmt})")
+    if fmt in ("html", "markdown", "txt"):
+        print(f"可直接查看文件内容")
+    return 0
+
+
+def cmd_export(args):
+    """seva export: 导出多格式报告（阶段38）"""
+    print(f"\n导出SEVA报告")
+    print("="*50)
+
+    agent = SEVAFactory.create(args.preset)
+    if args.steps > 0:
+        print(f"运行 {args.steps} 步采集数据...")
+        run(agent, steps=args.steps)
+
+    from .visualization import export_report
+    output = args.output
+    if not output:
+        ext = {"html": "html", "json": "json", "csv": "csv",
+               "markdown": "md", "txt": "txt"}.get(args.format, "txt")
+        output = f"seva_export.{ext}"
+
+    content = export_report(agent, args.format, output)
+    print(f"\n报告已导出: {output} (格式: {args.format})")
+    return 0
+
+
+def cmd_charts(args):
+    """seva charts: 生成SVG图表（阶段38）"""
+    print(f"\n生成SVG图表")
+    print("="*50)
+
+    agent = SEVAFactory.create(args.preset)
+    if args.steps > 0:
+        print(f"运行 {args.steps} 步采集数据...")
+        run(agent, steps=args.steps)
+
+    from .visualization import generate_charts
+    output_dir = args.output_dir or "./seva_charts"
+    files = generate_charts(agent, output_dir)
+    print(f"\n已生成 {len(files)} 个图表到目录: {output_dir}")
+    for f in files:
+        print(f"  - {f}")
+    return 0
+
+
+def cmd_compare(args):
+    """seva compare: 比较多个运行（阶段38）"""
+    print(f"\n比较多个SEVA运行")
+    print("="*50)
+
+    presets = args.presets
+    if len(presets) < 2:
+        print("错误: 至少需要2个预设进行比较")
+        return 1
+
+    agents = []
+    for preset in presets:
+        print(f"创建Agent (preset={preset})...")
+        agent = SEVAFactory.create(preset)
+        if args.steps > 0:
+            run(agent, steps=args.steps)
+        agents.append(agent)
+
+    from .visualization import compare_runs
+    output = args.output or "seva_comparison.html"
+    fmt = args.format
+    content = compare_runs(agents, labels=presets,
+                           output_file=output, format=fmt)
+    print(f"\n比较报告已生成: {output} (格式: {fmt})")
     return 0
 
 
@@ -863,16 +946,58 @@ def build_parser():
                            help="启动前运行步数 (默认: 10)")
     web_parser.set_defaults(func=cmd_web)
 
-    # 阶段37: report命令 - 生成HTML报告
-    report_parser = subparsers.add_parser("report", help="生成HTML报告")
+    # 阶段37/38: report命令 - 生成多格式报告
+    report_parser = subparsers.add_parser("report", help="生成报告")
     report_parser.add_argument("--output", type=str, default=None,
-                              help="输出文件路径 (默认: seva_report.html)")
+                              help="输出文件路径 (默认: seva_report.<ext>)")
     report_parser.add_argument("--preset", type=str, default="easy",
                               choices=PresetConfigs.list_presets(),
                               help="预设模板 (默认: easy)")
     report_parser.add_argument("--steps", type=int, default=50,
                               help="报告前运行步数 (默认: 50)")
+    report_parser.add_argument("--format", type=str, default="html",
+                              choices=["html", "json", "csv", "markdown", "txt"],
+                              help="报告格式 (默认: html)")
     report_parser.set_defaults(func=cmd_report)
+
+    # 阶段38: export命令 - 导出多格式报告
+    export_parser = subparsers.add_parser("export", help="导出多格式报告")
+    export_parser.add_argument("--format", type=str, default="html",
+                              choices=["html", "json", "csv", "markdown", "txt"],
+                              help="导出格式 (默认: html)")
+    export_parser.add_argument("--output", type=str, default=None,
+                              help="输出文件路径 (默认: seva_export.<ext>)")
+    export_parser.add_argument("--preset", type=str, default="easy",
+                              choices=PresetConfigs.list_presets(),
+                              help="预设模板 (默认: easy)")
+    export_parser.add_argument("--steps", type=int, default=50,
+                              help="导出前运行步数 (默认: 50)")
+    export_parser.set_defaults(func=cmd_export)
+
+    # 阶段38: charts命令 - 生成SVG图表
+    charts_parser = subparsers.add_parser("charts", help="生成SVG图表")
+    charts_parser.add_argument("--output-dir", type=str, default=None,
+                              dest="output_dir",
+                              help="输出目录 (默认: ./seva_charts)")
+    charts_parser.add_argument("--preset", type=str, default="easy",
+                              choices=PresetConfigs.list_presets(),
+                              help="预设模板 (默认: easy)")
+    charts_parser.add_argument("--steps", type=int, default=50,
+                              help="生成图表前运行步数 (默认: 50)")
+    charts_parser.set_defaults(func=cmd_charts)
+
+    # 阶段38: compare命令 - 比较多个运行
+    compare_parser = subparsers.add_parser("compare", help="比较多个运行")
+    compare_parser.add_argument("presets", nargs="+",
+                               help="要比较的预设列表 (至少2个)")
+    compare_parser.add_argument("--steps", type=int, default=50,
+                               help="每个运行步数 (默认: 50)")
+    compare_parser.add_argument("--format", type=str, default="html",
+                               choices=["html", "markdown", "txt", "json"],
+                               help="比较报告格式 (默认: html)")
+    compare_parser.add_argument("--output", type=str, default=None,
+                               help="输出文件路径 (默认: seva_comparison.<ext>)")
+    compare_parser.set_defaults(func=cmd_compare)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")

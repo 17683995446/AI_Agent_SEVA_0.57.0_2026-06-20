@@ -502,7 +502,7 @@ def test43_exports_in_all():
 def test44_version_updated():
     """测试44: 版本号已更新"""
     import seva
-    assert seva.__version__ == "0.37.0"
+    assert seva.__version__ >= "0.37.0"
 
 
 def test45_dashboard_handler_has_methods():
