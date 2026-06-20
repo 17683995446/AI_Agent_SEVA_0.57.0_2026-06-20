@@ -1,5 +1,5 @@
 """
-CLI命令行工具（阶段30）
+CLI命令行工具（阶段30/34）
 对应第一性原理：易用 = 命令行操作，无需写代码
 
 提供命令:
@@ -11,13 +11,19 @@ CLI命令行工具（阶段30）
     seva version      版本信息
     seva presets      列出预设模板
     seva demo         运行演示
+    seva scenarios    列出/运行预设场景（阶段34）
+    seva scenario run 运行指定场景
+    seva scenario compare  对比多个场景
+    seva diagnose     诊断系统
+    seva errors       列出所有错误码
+    seva monitor      实时监控
+    seva logs         日志管理
 
 使用示例:
     seva run --steps 100 --preset easy
-    seva config init --preset standard --output config.json
-    seva config show --preset easy
-    seva status
-    seva version
+    seva scenarios list
+    seva scenario run quick_validation
+    seva scenario compare quick_validation standard_run
 """
 import sys
 import os
@@ -35,6 +41,11 @@ from .api import (quickstart, run, get_status, create_config,
 from .diagnostics import Diagnoser, diagnose_agent, ErrorCode, SevaError
 from .monitoring import (StructuredLogger, MetricsCollector, Dashboard,
                          setup_logging, export_metrics)
+from .scenarios import (Scenario, PresetScenarios, ScenarioRunner,
+                        run_scenario, list_scenarios,
+                        list_scenarios_detailed, compare_scenarios,
+                        quick_demo, run_all_scenarios,
+                        get_scenario_report)
 
 
 def cmd_run(args):
@@ -237,6 +248,150 @@ def cmd_demo(args):
     print(f"  进化评估:       {status['evolution_evaluations']}")
     print(f"  当前难度:       {status['current_difficulty']}")
     return 0
+
+
+def cmd_scenarios(args):
+    """seva scenarios: 列出所有预设场景"""
+    print(f"\nSEVA预设场景")
+    print("="*50)
+
+    scenarios = list_scenarios_detailed()
+    print(f"\n共 {len(scenarios)} 个预设场景:\n")
+
+    for s in scenarios:
+        print(f"  {s['name']}")
+        print(f"    描述: {s['description']}")
+        print(f"    预设: {s['preset']}, 环境: {s['env_type']}, "
+              f"步数: {s['steps']}")
+        print(f"    标签: {', '.join(s['tags'])}")
+        print()
+
+    print("使用方式:")
+    print("  seva scenario run <场景名>          运行指定场景")
+    print("  seva scenario compare <场景1> <场景2>...  对比多个场景")
+    print("  seva scenario run-all               运行所有场景")
+    return 0
+
+
+def cmd_scenario(args):
+    """seva scenario: 场景管理"""
+    if args.scenario_action == "run":
+        return _scenario_run(args)
+    elif args.scenario_action == "compare":
+        return _scenario_compare(args)
+    elif args.scenario_action == "run-all":
+        return _scenario_run_all(args)
+    elif args.scenario_action == "list":
+        return cmd_scenarios(args)
+    else:
+        print(f"未知scenario子命令: {args.scenario_action}")
+        return 1
+
+
+def _scenario_run(args):
+    """运行指定场景"""
+    name = args.name
+    try:
+        scenario = PresetScenarios.get(name)
+    except ValueError as e:
+        print(f"错误: {e}")
+        return 1
+
+    print(f"\n运行场景: {name}")
+    print(f"  描述: {scenario.description}")
+    print(f"  预设: {scenario.preset}, 环境: {scenario.env_type}, "
+          f"步数: {scenario.steps}")
+    print()
+
+    result = run_scenario(name, verbose=False)
+
+    print("\n" + "="*50)
+    print("运行结果")
+    print("="*50)
+    print(f"  完成步数:       {result['steps_completed']}/{result['steps']}")
+    print(f"  总奖励:         {result['total_reward']:.4f}")
+    print(f"  平均周期:       {result['avg_cycle_time']*1000:.2f}ms")
+    print(f"  预测误差:       {result['avg_prediction_error']:.4f}")
+    print(f"  运行时间:       {result['elapsed_time']:.2f}s")
+    print(f"  运行模式:       {result['mode']}")
+    print(f"  任务完成:       {result['tasks_completed']}")
+    print(f"  技能总数:       {result['skills_total']}")
+    print(f"  进化评估:       {result['evolution_evaluations']}")
+    print(f"  当前难度:       {result['current_difficulty']}")
+    print(f"  通过:           {'是' if result['passed'] else '否'}")
+
+    if args.output:
+        with open(args.output, "w") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False, default=str)
+        print(f"\n结果已保存到 {args.output}")
+
+    return 0 if result["passed"] else 1
+
+
+def _scenario_compare(args):
+    """对比多个场景"""
+    names = args.names
+    print(f"\n对比场景: {', '.join(names)}")
+    print("="*50)
+
+    report = compare_scenarios(names, verbose=False)
+
+    # 打印对比表
+    print(f"\n{'场景':<25} {'奖励':<12} {'时间(s)':<10} {'通过':<6}")
+    print("-"*55)
+    for name, result in report["results"].items():
+        print(f"{name:<25} "
+              f"{result['total_reward']:<12.4f} "
+              f"{result['elapsed_time']:<10.2f} "
+              f"{'是' if result['passed'] else '否':<6}")
+
+    # 摘要
+    summary = report["summary"]
+    print(f"\n摘要:")
+    print(f"  总场景数:   {summary['total_scenarios']}")
+    print(f"  通过/失败:  {summary['passed']}/{summary['failed']}")
+    print(f"  最佳奖励:   {summary['best_reward']:.4f} "
+          f"({summary['best_scenario']})")
+    print(f"  最差奖励:   {summary['worst_reward']:.4f}")
+    print(f"  平均奖励:   {summary['avg_reward']:.4f}")
+    print(f"  总时间:     {summary['total_time']:.2f}s")
+    print(f"  最快场景:   {summary['fastest_scenario']}")
+
+    if args.output:
+        with open(args.output, "w") as f:
+            json.dump(report, f, indent=2, ensure_ascii=False, default=str)
+        print(f"\n对比报告已保存到 {args.output}")
+
+    return 0
+
+
+def _scenario_run_all(args):
+    """运行所有场景"""
+    print(f"\n运行所有预设场景")
+    print("="*50)
+
+    results = run_all_scenarios(verbose=False)
+
+    # 打印结果表
+    print(f"\n{'场景':<25} {'奖励':<12} {'时间(s)':<10} {'通过':<6}")
+    print("-"*55)
+    for name, result in results.items():
+        print(f"{name:<25} "
+              f"{result['total_reward']:<12.4f} "
+              f"{result['elapsed_time']:<10.2f} "
+              f"{'是' if result['passed'] else '否':<6}")
+
+    # 生成详细报告
+    report = get_scenario_report(results)
+    print("\n" + report)
+
+    if args.output:
+        with open(args.output, "w") as f:
+            json.dump(results, f, indent=2, ensure_ascii=False, default=str)
+        print(f"\n所有结果已保存到 {args.output}")
+
+    passed = sum(1 for r in results.values() if r["passed"])
+    return 0 if passed == len(results) else 1
 
 
 def cmd_diagnose(args):
@@ -444,6 +599,41 @@ def build_parser():
                             choices=["blank", "mixed", "drift", "adversarial"],
                             help="环境类型 (默认: mixed)")
     demo_parser.set_defaults(func=cmd_demo)
+
+    # scenarios命令（阶段34）：列出所有预设场景
+    scenarios_parser = subparsers.add_parser("scenarios",
+                                              help="列出所有预设场景")
+    scenarios_parser.set_defaults(func=cmd_scenarios)
+
+    # scenario命令（阶段34）：场景管理
+    scenario_parser = subparsers.add_parser("scenario", help="场景管理")
+    scenario_sub = scenario_parser.add_subparsers(
+        dest="scenario_action", help="场景子命令")
+
+    # scenario run
+    run_scn_parser = scenario_sub.add_parser("run", help="运行指定场景")
+    run_scn_parser.add_argument("name", type=str,
+                                help="场景名称 (如 quick_validation)")
+    run_scn_parser.add_argument("--output", type=str, default=None,
+                                help="结果保存路径")
+
+    # scenario compare
+    cmp_scn_parser = scenario_sub.add_parser("compare",
+                                              help="对比多个场景")
+    cmp_scn_parser.add_argument("names", nargs="+", help="场景名称列表")
+    cmp_scn_parser.add_argument("--output", type=str, default=None,
+                                help="对比报告保存路径")
+
+    # scenario run-all
+    all_scn_parser = scenario_sub.add_parser("run-all",
+                                              help="运行所有场景")
+    all_scn_parser.add_argument("--output", type=str, default=None,
+                                help="所有结果保存路径")
+
+    # scenario list
+    list_scn_parser = scenario_sub.add_parser("list",
+                                               help="列出所有场景")
+    scenario_parser.set_defaults(func=cmd_scenario)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")
