@@ -23,6 +23,15 @@ class GoalType(Enum):
     LEARN = "learn"
 
 
+class TaskState(Enum):
+    """任务状态（阶段25: 长任务自驱状态机）"""
+    TODO = "todo"          # 待执行
+    DOING = "doing"        # 执行中
+    DONE = "done"          # 已完成
+    FAILED = "failed"      # 失败
+    CANCELLED = "cancelled"  # 已取消
+
+
 class ActionType(Enum):
     """动作类型"""
     MOVE = "move"

@@ -20,6 +20,7 @@ from .memory import MemoryAndReview
 from .safety import SafetyEthicsModule
 from .decision import DecisionMaker
 from .executor import Executor
+from .task import TaskManager
 from .types import (PerceptionState, Drives, Goal, Prediction, Action,
                     ActionType, ErrorSignal, ErrorAttribution, ExperienceRecord,
                     SafetyReviewResult, gen_id)
@@ -58,6 +59,7 @@ class SelfEvolvingAgentCore:
         self.modules["safety_ethics"] = SafetyEthicsModule(self.config)
         self.modules["decision_maker"] = DecisionMaker(self.config)
         self.modules["executor"] = Executor(self.config)
+        self.modules["task_manager"] = TaskManager(self.config)
 
         # 运行状态
         self.cycle_count = 0
@@ -147,12 +149,31 @@ class SelfEvolvingAgentCore:
                                          "efficiency": drives.efficiency}})
             logger.debug(f"[Core] 阶段2驱力完成 time={time.time()-t0:.4f}s")
 
-            # ===== 阶段3：目标生成 =====
+            # ===== 阶段3：目标生成 + 长任务管理 =====
             t0 = time.time()
-            goals = self.modules["goal_generator"].generate(drives, perception)
+            task_mgr = self.modules["task_manager"]
+            current_task = task_mgr.get_current_task()
+
+            if current_task is not None:
+                # 阶段25: 有活跃长任务时，使用任务目标而非重新生成
+                goals = [current_task.goal]
+                logger.debug(f"[Core] 使用长任务目标 {current_task.goal.type.value} "
+                            f"progress={current_task.progress:.2f}")
+            else:
+                # 无活跃任务，生成新目标并提交为长任务
+                goals = self.modules["goal_generator"].generate(drives, perception)
+                # 阶段25: 将最高优先级目标提交为长任务（含HTN分解）
+                if goals:
+                    top_goal = max(goals, key=lambda g: g.priority)
+                    task_mgr.submit_goal(
+                        top_goal,
+                        max_steps=self.config.get("core", "max_cycles", 100000),
+                        decompose_fn=self.modules["goal_generator"].decompose
+                    )
             cycle_log.append({"stage": "goal_generator", "time": time.time()-t0,
                               "result": {"num_goals": len(goals),
-                                         "types": [g.type.value for g in goals]}})
+                                         "types": [g.type.value for g in goals],
+                                         "task_active": current_task is not None}})
             logger.debug(f"[Core] 阶段3目标完成 time={time.time()-t0:.4f}s")
 
             # ===== 阶段4：预测 =====
@@ -232,6 +253,23 @@ class SelfEvolvingAgentCore:
                                          "surprise": error.surprise,
                                          "novel": error.is_novel}})
             logger.debug(f"[Core] 阶段8误差评估完成 time={time.time()-t0:.4f}s")
+
+            # 阶段25: 更新长任务进度（用真实reward和误差）
+            task_mgr.update_current(
+                actual_reward,
+                error.magnitude if error else 0.0
+            )
+            task_report = task_mgr.get_progress_report()
+            cycle_log.append({
+                "stage": "task_update",
+                "time": 0.0,
+                "result": {
+                    "task_active": task_report["active_tasks"] > 0,
+                    "current_task": task_report["current_task"],
+                    "total_completed": task_report["total_completed"],
+                    "total_failed": task_report["total_failed"],
+                }
+            })
 
             # ===== 阶段9：在线学习 =====
             t0 = time.time()
@@ -397,6 +435,8 @@ class SelfEvolvingAgentCore:
 
     def get_metrics(self) -> Dict[str, Any]:
         """获取指标"""
+        # 阶段25: 包含长任务统计
+        task_report = self.modules["task_manager"].get_progress_report()
         return {
             "cycle_count": self.cycle_count,
             "total_reward": self.metrics["total_reward"],
@@ -410,6 +450,7 @@ class SelfEvolvingAgentCore:
             "action_distribution": dict(zip(
                 *np.unique(self.metrics["action_types"], return_counts=True)
             )) if self.metrics["action_types"] else {},
+            "task_stats": task_report,
         }
 
     def get_handled_messages(self) -> List:
