@@ -13,6 +13,7 @@
 阶段41: 首次运行向导与引导系统
 阶段42: 智能命令补全与提示
 阶段43: 交互式教程系统
+阶段44: 性能优化与启动加速
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -42,6 +43,13 @@
     from seva import run_wizard, check_first_run
     if check_first_run():
         run_wizard()  # 首次运行向导
+
+    from seva import (PerformanceMonitor, LazyLoader, StartupProfiler,
+                      LRUCache, profile_operation, get_performance_report,
+                      optimize_agent, benchmark, startup_benchmark)
+    with PerformanceMonitor().measure("my_op"):
+        do_something()  # 性能监控
+    print(get_performance_report())  # 查看性能报告
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -82,6 +90,13 @@ from .tutorial import (Tutorial, TutorialStep, TutorialProgress,
                        run_tutorial, list_tutorials,
                        get_tutorial_info, reset_tutorial_progress,
                        get_tutorial_progress)
+from .performance import (PerformanceMonitor, LazyLoader, LazyAttribute,
+                          StartupProfiler, LRUCache, MemoryTracker,
+                          profile_operation, get_performance_report,
+                          get_performance_stats, save_performance,
+                          reset_performance, optimize_agent,
+                          benchmark, benchmark_report,
+                          startup_benchmark)
 
 __all__ = [
     "Config",
@@ -166,6 +181,21 @@ __all__ = [
     "get_tutorial_info",
     "reset_tutorial_progress",
     "get_tutorial_progress",
+    "PerformanceMonitor",
+    "LazyLoader",
+    "LazyAttribute",
+    "StartupProfiler",
+    "LRUCache",
+    "MemoryTracker",
+    "profile_operation",
+    "get_performance_report",
+    "get_performance_stats",
+    "save_performance",
+    "reset_performance",
+    "optimize_agent",
+    "benchmark",
+    "benchmark_report",
+    "startup_benchmark",
 ]
 
-__version__ = "0.43.0"
+__version__ = "0.44.0"

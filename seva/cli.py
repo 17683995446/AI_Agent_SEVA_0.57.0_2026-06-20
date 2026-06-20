@@ -900,6 +900,87 @@ def cmd_tutorial(args):
     return 0 if completed else 0
 
 
+def cmd_perf(args):
+    """seva perf: 性能监控与优化（阶段44）"""
+    from .performance import (PerformanceMonitor, get_performance_report,
+                              get_performance_stats, save_performance,
+                              reset_performance, optimize_agent,
+                              startup_benchmark, benchmark_report)
+
+    if args.reset:
+        reset_performance()
+        print("已重置性能监控数据")
+        return 0
+
+    if args.report:
+        print(get_performance_report())
+        return 0
+
+    if args.save:
+        path = save_performance(args.save)
+        print(f"性能数据已保存到: {path}")
+        return 0
+
+    if args.startup:
+        print("测量Agent启动时间...")
+        result = startup_benchmark(
+            preset=args.preset,
+            env_type=args.env_type,
+            seed=args.seed,
+        )
+        print(f"\n启动时间: {result['total_time']*1000:.2f}ms")
+        print(f"预设: {result['preset']}, 环境: {result['env_type']}")
+        print("\n各阶段耗时:")
+        print("-" * 50)
+        for step in result["steps"]:
+            print(f"  {step['name']:<25} {step['duration']*1000:>8.2f}ms")
+        return 0
+
+    if args.optimize:
+        print("优化Agent配置...")
+        agent = SEVAFactory.create(
+            preset=args.preset,
+            env_type=args.env_type,
+            seed=args.seed,
+        )
+        result = optimize_agent(agent)
+        print(f"\n优化结果:")
+        print(f"  应用优化: {result['applied_count']}项")
+        for a in result["applied"]:
+            print(f"    - {a}")
+        print(f"  优化建议: {result['suggestion_count']}条")
+        for s in result["suggestions"]:
+            print(f"    - {s}")
+        return 0
+
+    if args.stats:
+        stats = get_performance_stats()
+        if not stats:
+            print("性能监控: 暂无数据")
+            print("提示: 使用 --startup 测量启动时间")
+            return 0
+        print(f"\n性能统计 ({len(stats)}个操作):")
+        print("=" * 60)
+        for name, s in stats.items():
+            print(f"\n  {name}:")
+            print(f"    调用次数: {s['count']}")
+            print(f"    总耗时:   {s['total']*1000:.2f}ms")
+            print(f"    平均耗时: {s['avg']*1000:.4f}ms")
+            print(f"    最大耗时: {s['max']*1000:.4f}ms")
+        return 0
+
+    # 默认显示报告
+    report = get_performance_report()
+    print(report)
+    print("\n可用选项:")
+    print("  --startup    测量启动时间")
+    print("  --optimize   优化Agent配置")
+    print("  --stats      查看详细统计")
+    print("  --save PATH  保存性能数据")
+    print("  --reset      重置监控数据")
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -1374,6 +1455,31 @@ def build_parser():
     tutorial_parser.add_argument("--progress", action="store_true",
                                  help="查看教程进度")
     tutorial_parser.set_defaults(func=cmd_tutorial)
+
+    # 阶段44: perf命令 - 性能监控与优化
+    perf_parser = subparsers.add_parser("perf", help="性能监控与优化")
+    perf_parser.add_argument("--startup", action="store_true",
+                             help="测量Agent启动时间")
+    perf_parser.add_argument("--optimize", action="store_true",
+                             help="优化Agent配置")
+    perf_parser.add_argument("--stats", action="store_true",
+                             help="查看详细性能统计")
+    perf_parser.add_argument("--report", action="store_true",
+                             help="查看性能报告")
+    perf_parser.add_argument("--save", type=str, default=None,
+                             help="保存性能数据到文件")
+    perf_parser.add_argument("--reset", action="store_true",
+                             help="重置性能监控数据")
+    perf_parser.add_argument("--preset", type=str, default="easy",
+                             choices=PresetConfigs.list_presets(),
+                             help="预设模板 (默认: easy)")
+    perf_parser.add_argument("--env-type", type=str, default="mixed",
+                             dest="env_type",
+                             choices=["blank", "mixed", "drift", "adversarial"],
+                             help="环境类型 (默认: mixed)")
+    perf_parser.add_argument("--seed", type=int, default=42,
+                             help="随机种子 (默认: 42)")
+    perf_parser.set_defaults(func=cmd_perf)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")
