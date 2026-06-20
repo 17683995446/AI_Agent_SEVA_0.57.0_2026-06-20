@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seva-agent"
+version = "0.40.0"
+description = "自驱永续进化预测修正Agent系统"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "SEVA Team", email = "2358384171@qq.com"},
+]
+keywords = ["agent", "ai", "self-evolving", "prediction", "reinforcement-learning"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.20.0",
+    "PyYAML>=5.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/17683995446/seva-agent"
+Repository = "https://github.com/17683995446/seva-agent"
+
+[project.scripts]
+seva = "seva.cli:main"
+
+[tool.setuptools.packages.find]
+exclude = ["tests*", "examples*"]
+
+[tool.setuptools.package-data]
+seva = ["*.py"]

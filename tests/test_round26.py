@@ -220,7 +220,9 @@ def test30_command_version():
     """测试30: version命令"""
     output = execute_command("version")
     assert "SEVA" in output
-    assert "0.3" in output
+    # 版本号格式: 0.XX.0
+    import re
+    assert re.search(r'\d+\.\d+\.\d+', output) is not None
 
 
 # ============================================================

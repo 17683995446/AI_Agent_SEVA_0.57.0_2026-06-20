@@ -9,6 +9,7 @@
 阶段37: Web Dashboard可视化
 阶段38: 结果可视化与报告导出
 阶段39: 会话持久化与恢复
+阶段40: 打包发布与安装脚本
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -124,4 +125,4 @@ __all__ = [
     "checkpoint",
 ]
 
-__version__ = "0.39.0"
+__version__ = "0.40.0"

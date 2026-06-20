@@ -1,0 +1,7 @@
+# MANIFEST.in - 打包时包含的非Python文件
+include README.md
+include requirements.txt
+include LICENSE
+recursive-include examples *.py
+recursive-include tests *.py
+recursive-include seva *.py
