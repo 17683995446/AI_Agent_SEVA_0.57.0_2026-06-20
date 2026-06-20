@@ -734,6 +734,56 @@ def cmd_session(args):
         return 1
 
 
+def cmd_wizard(args):
+    """seva wizard: 首次运行向导（阶段41）"""
+    from .wizard import (FirstRunWizard, WizardState, GuidedTips,
+                         run_wizard, reset_wizard)
+
+    if args.reset:
+        reset_wizard()
+        print("向导状态已重置，下次运行将重新触发首次向导")
+        return 0
+
+    if args.status:
+        print(f"\nSEVA向导状态")
+        print("=" * 50)
+        print(f"首次运行: {'是' if WizardState.is_first_run() else '否'}")
+        print(f"已完成: {'是' if WizardState.is_completed() else '否'}")
+        state = WizardState.load_state()
+        if state:
+            print(f"预设: {state.get('preset', '未知')}")
+            print(f"环境: {state.get('env_type', '未知')}")
+            print(f"步数: {state.get('steps', 0)}")
+            ts = state.get("completed_at", 0)
+            if ts:
+                ts_str = time.strftime("%Y-%m-%d %H:%M:%S",
+                                       time.localtime(ts))
+                print(f"完成时间: {ts_str}")
+        return 0
+
+    if args.tips:
+        GuidedTips.show_tips()
+        return 0
+
+    # 运行向导
+    interactive = not args.silent
+    if args.silent:
+        # 静默模式使用指定参数
+        from .wizard import FirstRunWizard
+        wizard = FirstRunWizard(interactive=False)
+        result = wizard.run_silent(
+            preset=args.preset,
+            env_type=args.env_type,
+            steps=args.steps,
+        )
+    else:
+        result = run_wizard(interactive=True)
+
+    if result.get("cancelled"):
+        return 0
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -1151,6 +1201,27 @@ def build_parser():
                          help="保留最近N个检查点 (0=不限制)")
 
     session_parser.set_defaults(func=cmd_session)
+
+    # 阶段41: wizard命令 - 首次运行向导
+    wizard_parser = subparsers.add_parser("wizard", help="首次运行向导")
+    wizard_parser.add_argument("--silent", action="store_true",
+                              help="静默模式（非交互，使用默认或指定参数）")
+    wizard_parser.add_argument("--preset", type=str, default="easy",
+                              choices=PresetConfigs.list_presets(),
+                              help="预设模板 (静默模式使用，默认: easy)")
+    wizard_parser.add_argument("--env-type", type=str, default="mixed",
+                              dest="env_type",
+                              choices=["blank", "mixed", "drift", "adversarial"],
+                              help="环境类型 (静默模式使用，默认: mixed)")
+    wizard_parser.add_argument("--steps", type=int, default=10,
+                              help="运行步数 (静默模式使用，默认: 10)")
+    wizard_parser.add_argument("--reset", action="store_true",
+                              help="重置向导状态")
+    wizard_parser.add_argument("--status", action="store_true",
+                              help="查看向导状态")
+    wizard_parser.add_argument("--tips", action="store_true",
+                              help="显示使用提示")
+    wizard_parser.set_defaults(func=cmd_wizard)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")

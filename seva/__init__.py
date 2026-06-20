@@ -10,6 +10,7 @@
 阶段38: 结果可视化与报告导出
 阶段39: 会话持久化与恢复
 阶段40: 打包发布与安装脚本
+阶段41: 首次运行向导与引导系统
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -35,6 +36,10 @@
     from seva import save_session, load_session
     save_session(agent, "my_session.json")  # 保存会话
     agent2 = load_session("my_session.json")  # 恢复会话
+
+    from seva import run_wizard, check_first_run
+    if check_first_run():
+        run_wizard()  # 首次运行向导
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -63,6 +68,9 @@ from .persistence import (SessionManager, CheckpointHook,
                           save_session, load_session,
                           list_sessions, delete_session,
                           get_session_info, checkpoint)
+from .wizard import (FirstRunWizard, WizardState, GuidedTips,
+                     run_wizard, check_first_run, show_tips,
+                     reset_wizard)
 
 __all__ = [
     "Config",
@@ -123,6 +131,13 @@ __all__ = [
     "delete_session",
     "get_session_info",
     "checkpoint",
+    "FirstRunWizard",
+    "WizardState",
+    "GuidedTips",
+    "run_wizard",
+    "check_first_run",
+    "show_tips",
+    "reset_wizard",
 ]
 
-__version__ = "0.40.0"
+__version__ = "0.41.0"
