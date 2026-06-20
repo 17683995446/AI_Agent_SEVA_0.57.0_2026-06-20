@@ -23,6 +23,7 @@ from .executor import Executor
 from .task import TaskManager
 from .skill import SkillLibrary, SkillAcquisition
 from .multiagent import MultiAgentCoordinator, AgentInfo, AgentStatus
+from .evolution import EvolutionLoop
 from .types import (PerceptionState, Drives, Goal, Prediction, Action,
                     ActionType, ErrorSignal, ErrorAttribution, ExperienceRecord,
                     SafetyReviewResult, gen_id)
@@ -69,6 +70,8 @@ class SelfEvolvingAgentCore:
         )
         # 阶段27: 多Agent协作
         self.modules["coordinator"] = MultiAgentCoordinator(self.config)
+        # 阶段28: 自主进化闭环
+        self.modules["evolution_loop"] = EvolutionLoop(self.config)
 
         # 运行状态
         self.cycle_count = 0
@@ -350,6 +353,29 @@ class SelfEvolvingAgentCore:
                 }
             })
 
+            # 阶段28: 自主进化闭环（元学习+自我调参+课程学习）
+            # 任务结果：reward>0视为成功（与技能更新一致）
+            task_result_bool = actual_reward > 0
+            task_success_rate = (task_report["total_completed"] /
+                                 max(task_report["total_created"], 1))
+            evolution_result = self.modules["evolution_loop"].step(
+                cycle=self.cycle_count,
+                avg_error=error.magnitude if error else 0.0,
+                avg_reward=actual_reward,
+                skill_count=skill_stats["total_skills"],
+                task_success_rate=task_success_rate,
+                task_result=task_result_bool,
+            )
+            cycle_log.append({
+                "stage": "evolution",
+                "time": 0.0,
+                "result": {
+                    "evaluated": evolution_result["evaluated"],
+                    "adjustments": evolution_result["adjustments"],
+                    "difficulty_change": evolution_result["difficulty_change"],
+                }
+            })
+
             # ===== 阶段9：在线学习 =====
             t0 = time.time()
             # 用误差更新预测模型参数（简化）
@@ -520,6 +546,8 @@ class SelfEvolvingAgentCore:
         skill_stats = self.modules["skill_library"].get_stats()
         # 阶段27: 包含多Agent协调统计
         coord_stats = self.modules["coordinator"].get_status()
+        # 阶段28: 包含自主进化统计
+        evolution_stats = self.modules["evolution_loop"].get_evolution_stats()
         return {
             "cycle_count": self.cycle_count,
             "total_reward": self.metrics["total_reward"],
@@ -536,6 +564,7 @@ class SelfEvolvingAgentCore:
             "task_stats": task_report,
             "skill_stats": skill_stats,
             "coord_stats": coord_stats,
+            "evolution_stats": evolution_stats,
         }
 
     def get_handled_messages(self) -> List:

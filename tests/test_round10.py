@@ -326,7 +326,7 @@ def test_acceptance_2_behavior_consistency():
 
     config = Config()
 
-    # 2.1 核心循环顺序验证（阶段25 task_update, 阶段26 skill_update, 阶段27 coordination）
+    # 2.1 核心循环顺序验证（阶段25 task_update, 阶段26 skill_update, 阶段27 coordination, 阶段28 evolution）
     core = SelfEvolvingAgentCore(config)
     core.initialize()
     core.inject_input(np.random.randn(config.get("perception", "input_dim")))
@@ -336,9 +336,9 @@ def test_acceptance_2_behavior_consistency():
     expected_order = ["perception", "drive_engine", "goal_generator",
                       "predictor", "decision_maker", "safety_ethics",
                       "executor", "error_evaluator", "task_update",
-                      "skill_update", "coordination", "optimizer",
-                      "memory", "metacognition", "timing_control"]
-    report("核心循环顺序一致(含task+skill+coord)", stages == expected_order,
+                      "skill_update", "coordination", "evolution",
+                      "optimizer", "memory", "metacognition", "timing_control"]
+    report("核心循环顺序一致(含task+skill+coord+evolution)", stages == expected_order,
            f"stages={stages}")
 
     # 2.2 安全否决后执行fallback

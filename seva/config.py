@@ -118,6 +118,14 @@ class Config:
             "heartbeat_timeout": 300,         # 心跳超时（秒）
             "enable_coordination": True,      # 是否启用协调
         },
+        # 阶段28: 自主进化闭环
+        "evolution": {
+            "evaluation_interval": 100,       # 进化评估间隔（周期）
+            "max_history": 50,                # 进化历史上限
+            "success_threshold": 0.7,         # 课程提升成功率阈值
+            "failure_threshold": 0.3,         # 课程回退失败率阈值
+            "evaluation_window": 50,          # 课程评估窗口
+        },
     }
 
     def __init__(self, env_overrides: Optional[Dict] = None,
