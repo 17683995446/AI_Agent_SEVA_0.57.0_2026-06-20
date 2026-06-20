@@ -32,6 +32,7 @@ from . import __version__
 from .config import Config
 from .api import (quickstart, run, get_status, create_config,
                   SEVAFactory, PresetConfigs)
+from .diagnostics import Diagnoser, diagnose_agent, ErrorCode, SevaError
 
 
 def cmd_run(args):
@@ -236,6 +237,56 @@ def cmd_demo(args):
     return 0
 
 
+def cmd_diagnose(args):
+    """seva diagnose: 诊断系统"""
+    print(f"\nSEVA系统诊断 (preset={args.preset})")
+    print("="*50)
+
+    # 创建Agent（可选运行几步）
+    agent = SEVAFactory.create(args.preset)
+    if args.steps > 0:
+        print(f"运行 {args.steps} 步采集数据...")
+        run(agent, steps=args.steps)
+
+    # 诊断
+    report = Diagnoser(agent).diagnose()
+    output = Diagnoser(agent).format_report(report)
+    print(output)
+
+    if args.output:
+        with open(args.output, "w") as f:
+            json.dump(report, f, indent=2, ensure_ascii=False, default=str)
+        print(f"\n诊断报告已保存到 {args.output}")
+
+    return 0 if report["healthy"] else 1
+
+
+def cmd_errors(args):
+    """seva errors: 列出所有错误码"""
+    print(f"\nSEVA错误码体系")
+    print("="*50)
+
+    # 收集所有错误码
+    error_codes = []
+    for name in dir(ErrorCode):
+        if name.startswith("_"):
+            continue
+        val = getattr(ErrorCode, name)
+        if isinstance(val, tuple) and len(val) == 4:
+            error_codes.append((name, val))
+
+    # 按分类分组
+    from .diagnostics import ErrorCategory
+    for category in ErrorCategory:
+        print(f"\n[{category.value}]")
+        for name, val in error_codes:
+            if val[1] == category:
+                print(f"  {val[0]} ({name})")
+                print(f"    描述: {val[2]}")
+                print(f"    修复: {val[3]}")
+    return 0
+
+
 def build_parser():
     """构建命令行参数解析器"""
     parser = argparse.ArgumentParser(
@@ -313,6 +364,21 @@ def build_parser():
                             choices=["blank", "mixed", "drift", "adversarial"],
                             help="环境类型 (默认: mixed)")
     demo_parser.set_defaults(func=cmd_demo)
+
+    # diagnose命令
+    diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")
+    diagnose_parser.add_argument("--steps", type=int, default=10,
+                               help="诊断前运行步数 (默认: 10)")
+    diagnose_parser.add_argument("--preset", type=str, default="easy",
+                               choices=PresetConfigs.list_presets(),
+                               help="预设模板 (默认: easy)")
+    diagnose_parser.add_argument("--output", type=str, default=None,
+                               help="诊断报告保存路径")
+    diagnose_parser.set_defaults(func=cmd_diagnose)
+
+    # errors命令
+    errors_parser = subparsers.add_parser("errors", help="列出所有错误码")
+    errors_parser.set_defaults(func=cmd_errors)
 
     return parser
 

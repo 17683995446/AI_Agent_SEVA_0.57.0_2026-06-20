@@ -11,6 +11,9 @@ from .config import Config
 from .core import SelfEvolvingAgentCore
 from .api import (quickstart, run, get_status, create_config,
                   SEVAFactory, PresetConfigs)
+from .diagnostics import (SevaError, ErrorCode, ErrorCategory,
+                          Diagnoser, diagnose_agent, format_exception,
+                          check_common_issues)
 
 __all__ = [
     "Config",
@@ -21,6 +24,13 @@ __all__ = [
     "create_config",
     "SEVAFactory",
     "PresetConfigs",
+    "SevaError",
+    "ErrorCode",
+    "ErrorCategory",
+    "Diagnoser",
+    "diagnose_agent",
+    "format_exception",
+    "check_common_issues",
 ]
 
-__version__ = "0.29.0"
+__version__ = "0.31.0"
