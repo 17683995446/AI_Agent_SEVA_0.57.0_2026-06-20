@@ -14,6 +14,8 @@ from .api import (quickstart, run, get_status, create_config,
 from .diagnostics import (SevaError, ErrorCode, ErrorCategory,
                           Diagnoser, diagnose_agent, format_exception,
                           check_common_issues)
+from .monitoring import (StructuredLogger, MetricsCollector, Dashboard,
+                         monitor, setup_logging, export_metrics)
 
 __all__ = [
     "Config",
@@ -31,6 +33,12 @@ __all__ = [
     "diagnose_agent",
     "format_exception",
     "check_common_issues",
+    "StructuredLogger",
+    "MetricsCollector",
+    "Dashboard",
+    "monitor",
+    "setup_logging",
+    "export_metrics",
 ]
 
-__version__ = "0.31.0"
+__version__ = "0.32.0"

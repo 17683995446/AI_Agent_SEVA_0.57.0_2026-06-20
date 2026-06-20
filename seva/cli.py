@@ -33,6 +33,8 @@ from .config import Config
 from .api import (quickstart, run, get_status, create_config,
                   SEVAFactory, PresetConfigs)
 from .diagnostics import Diagnoser, diagnose_agent, ErrorCode, SevaError
+from .monitoring import (StructuredLogger, MetricsCollector, Dashboard,
+                         setup_logging, export_metrics)
 
 
 def cmd_run(args):
@@ -287,6 +289,84 @@ def cmd_errors(args):
     return 0
 
 
+def cmd_monitor(args):
+    """seva monitor: 实时监控Agent运行"""
+    print(f"\nSEVA实时监控 (preset={args.preset}, steps={args.steps})")
+    print("="*50)
+
+    agent = SEVAFactory.create(args.preset)
+    dashboard = Dashboard(agent)
+
+    # 运行并定期显示仪表盘
+    report_interval = max(args.steps // 5, 1)
+    for i in range(args.steps):
+        if agent._env_done:
+            break
+        if not hasattr(agent, "_pending_input") or agent._pending_input is None:
+            agent.inject_input(np.random.randn(
+                agent.config.get("perception", "input_dim")) * 0.3)
+        agent.run_cycle()
+
+        if (i + 1) % report_interval == 0 or i == args.steps - 1:
+            print(f"\n--- 步骤 {i+1}/{args.steps} ---")
+            dashboard.print(compact=True)
+
+    # 最终详细仪表盘
+    print("\n--- 最终状态 ---")
+    dashboard.print(compact=False)
+
+    # 导出指标
+    if args.output:
+        export_metrics(dashboard.collector, args.output)
+        print(f"\n指标已导出到 {args.output}")
+
+    return 0
+
+
+def cmd_logs(args):
+    """seva logs: 日志管理"""
+    if args.logs_action == "show":
+        return _logs_show(args)
+    elif args.logs_action == "export":
+        return _logs_export(args)
+    else:
+        print(f"未知logs子命令: {args.logs_action}")
+        return 1
+
+
+def _logs_show(args):
+    """显示日志"""
+    logger = setup_logging(level=args.level, format=args.format)
+    # 运行Agent产生日志
+    agent = SEVAFactory.create(args.preset)
+    print(f"运行 {args.steps} 步产生日志...")
+    run(agent, steps=args.steps)
+
+    # 显示日志记录
+    records = logger.get_records(limit=args.limit)
+    print(f"\n最近 {len(records)} 条日志:")
+    for r in records:
+        print(f"  [{r['level']}] {r['message']}")
+    return 0
+
+
+def _logs_export(args):
+    """导出日志"""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_file = os.path.join(tmpdir, "seva.log")
+        logger = setup_logging(level="DEBUG", format=args.format,
+                              output_file=log_file)
+        agent = SEVAFactory.create(args.preset)
+        run(agent, steps=args.steps)
+
+        output = args.output or "seva_export.log"
+        import shutil
+        shutil.copy(log_file, output)
+        print(f"日志已导出到 {output}")
+    return 0
+
+
 def build_parser():
     """构建命令行参数解析器"""
     parser = argparse.ArgumentParser(
@@ -379,6 +459,51 @@ def build_parser():
     # errors命令
     errors_parser = subparsers.add_parser("errors", help="列出所有错误码")
     errors_parser.set_defaults(func=cmd_errors)
+
+    # monitor命令
+    monitor_parser = subparsers.add_parser("monitor", help="实时监控Agent运行")
+    monitor_parser.add_argument("--steps", type=int, default=50,
+                              help="监控步数 (默认: 50)")
+    monitor_parser.add_argument("--preset", type=str, default="easy",
+                              choices=PresetConfigs.list_presets(),
+                              help="预设模板 (默认: easy)")
+    monitor_parser.add_argument("--output", type=str, default=None,
+                              help="指标导出路径")
+    monitor_parser.set_defaults(func=cmd_monitor)
+
+    # logs命令
+    logs_parser = subparsers.add_parser("logs", help="日志管理")
+    logs_sub = logs_parser.add_subparsers(dest="logs_action",
+                                         help="日志子命令")
+
+    show_parser = logs_sub.add_parser("show", help="显示日志")
+    show_parser.add_argument("--steps", type=int, default=10,
+                           help="运行步数 (默认: 10)")
+    show_parser.add_argument("--preset", type=str, default="easy",
+                           choices=PresetConfigs.list_presets(),
+                           help="预设模板 (默认: easy)")
+    show_parser.add_argument("--level", type=str, default="INFO",
+                           choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                           help="日志级别 (默认: INFO)")
+    show_parser.add_argument("--format", type=str, default="text",
+                           choices=["text", "json"],
+                           help="日志格式 (默认: text)")
+    show_parser.add_argument("--limit", type=int, default=20,
+                           help="显示条数 (默认: 20)")
+
+    export_parser = logs_sub.add_parser("export", help="导出日志")
+    export_parser.add_argument("--steps", type=int, default=20,
+                             help="运行步数 (默认: 20)")
+    export_parser.add_argument("--preset", type=str, default="easy",
+                             choices=PresetConfigs.list_presets(),
+                             help="预设模板 (默认: easy)")
+    export_parser.add_argument("--format", type=str, default="text",
+                             choices=["text", "json"],
+                             help="日志格式 (默认: text)")
+    export_parser.add_argument("--output", type=str, default=None,
+                             help="输出文件路径 (默认: seva_export.log)")
+
+    logs_parser.set_defaults(func=cmd_logs)
 
     return parser
 
