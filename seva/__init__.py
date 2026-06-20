@@ -15,6 +15,7 @@
 阶段43: 交互式教程系统
 阶段44: 性能优化与启动加速
 阶段45: 用户偏好与个性化设置
+阶段46: 帮助系统与文档集成
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -59,6 +60,11 @@
     print(get_preference("display.theme"))    # 获取偏好
     create_profile("work", from_current=True) # 创建配置文件
     switch_profile("work")                    # 切换配置文件
+
+    from seva import show_help, search_help, list_help_topics, help
+    print(show_help("getting_started"))  # 显示帮助主题
+    print(search_help("配置"))           # 搜索帮助
+    print(list_help_topics())            # 列出主题
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -117,6 +123,18 @@ from .preferences import (PreferenceItem, PreferenceSchema, Preferences,
                           create_profile, delete_profile,
                           switch_profile, list_profiles,
                           get_current_profile, get_profile)
+from .help_system import (HelpTopic, HelpSystem, CommandHelp,
+                          CommandHelpRegistry, FAQEntry, FAQRegistry,
+                          GlossaryTerm, Glossary, CodeExample,
+                          ExampleRegistry,
+                          show_help, search_help, list_help_topics,
+                          list_help_categories, get_help_report,
+                          get_command_help, list_commands,
+                          search_faq, list_faqs,
+                          get_glossary_term, search_glossary,
+                          list_glossary,
+                          get_example, list_examples, search_examples,
+                          help)
 
 __all__ = [
     "Config",
@@ -238,6 +256,32 @@ __all__ = [
     "list_profiles",
     "get_current_profile",
     "get_profile",
+    "HelpTopic",
+    "HelpSystem",
+    "CommandHelp",
+    "CommandHelpRegistry",
+    "FAQEntry",
+    "FAQRegistry",
+    "GlossaryTerm",
+    "Glossary",
+    "CodeExample",
+    "ExampleRegistry",
+    "show_help",
+    "search_help",
+    "list_help_topics",
+    "list_help_categories",
+    "get_help_report",
+    "get_command_help",
+    "list_commands",
+    "search_faq",
+    "list_faqs",
+    "get_glossary_term",
+    "search_glossary",
+    "list_glossary",
+    "get_example",
+    "list_examples",
+    "search_examples",
+    "help",
 ]
 
-__version__ = "0.45.0"
+__version__ = "0.46.0"

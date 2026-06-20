@@ -1183,6 +1183,141 @@ def cmd_prefs(args):
     return 0
 
 
+def cmd_help(args):
+    """seva help: 帮助系统（阶段46）"""
+    from .help_system import (show_help, search_help, list_help_topics,
+                              list_help_categories, get_help_report,
+                              get_command_help, list_commands,
+                              search_faq, list_faqs,
+                              get_glossary_term, search_glossary,
+                              list_glossary,
+                              get_example, list_examples, search_examples,
+                              help as help_func)
+
+    if args.search:
+        results = search_help(args.search)
+        if not results:
+            print(f"未找到匹配 '{args.search}' 的主题")
+            print("使用 --list 查看所有主题")
+            return 0
+        print(f"搜索 '{args.search}' 的结果 ({len(results)}个):")
+        print("=" * 60)
+        for r in results:
+            print(f"  [{r['category']}] {r['topic_id']}: {r['title']}"
+                  f" (相关度: {r['score']})")
+        print()
+        return 0
+
+    if args.list:
+        topics = list_help_topics()
+        print(f"\n所有帮助主题 ({len(topics)}个):")
+        print("=" * 60)
+        current_cat = None
+        for t in topics:
+            if t["category"] != current_cat:
+                current_cat = t["category"]
+                print(f"\n[{current_cat}]")
+            print(f"  {t['topic_id']}: {t['title']}")
+        print()
+        return 0
+
+    if args.categories:
+        cats = list_help_categories()
+        print(f"\n帮助分类 ({len(cats)}个):")
+        print("=" * 60)
+        for cat in cats:
+            from .help_system import HelpSystem
+            count = len(HelpSystem().get_topics_by_category(cat))
+            print(f"  {cat} ({count}个主题)")
+        print()
+        return 0
+
+    if args.faq:
+        faqs = list_faqs()
+        if args.search:
+            faqs = search_faq(args.search)
+        print(f"\n常见问题 ({len(faqs)}个):")
+        print("=" * 60)
+        for i, f in enumerate(faqs, 1):
+            print(f"\n{i}. Q: {f.question}")
+            print(f"   A: {f.answer}")
+        print()
+        return 0
+
+    if args.glossary:
+        terms = list_glossary()
+        if args.search:
+            terms = search_glossary(args.search)
+        print(f"\n术语表 ({len(terms)}个):")
+        print("=" * 60)
+        for t in sorted(terms, key=lambda x: x.term):
+            print(f"  {t.term}: {t.definition}")
+        print()
+        return 0
+
+    if args.examples:
+        exs = list_examples()
+        if args.search:
+            exs = search_examples(args.search)
+        print(f"\n代码示例 ({len(exs)}个):")
+        print("=" * 60)
+        current_cat = None
+        for ex in exs:
+            if ex.category != current_cat:
+                current_cat = ex.category
+                print(f"\n[{current_cat}]")
+            print(f"  {ex.example_id}: {ex.title}")
+        print()
+        return 0
+
+    if args.command:
+        cmd_help_text = get_command_help(args.command)
+        if cmd_help_text:
+            print(cmd_help_text)
+        else:
+            print(f"未找到命令: {args.command}")
+            print(f"可用命令: {', '.join(list_commands())}")
+            return 1
+        return 0
+
+    if args.topic:
+        print(show_help(args.topic))
+        return 0
+
+    if args.example_id:
+        ex = get_example(args.example_id)
+        if ex:
+            print(ex.format())
+        else:
+            print(f"未找到示例: {args.example_id}")
+            return 1
+        return 0
+
+    if args.term:
+        definition = get_glossary_term(args.term)
+        if definition:
+            print(definition)
+        else:
+            print(f"未找到术语: {args.term}")
+            return 1
+        return 0
+
+    # 默认显示报告
+    print(get_help_report())
+    print("\n可用选项:")
+    print("  <topic>          显示主题内容")
+    print("  --search QUERY   搜索主题")
+    print("  --list           列出所有主题")
+    print("  --categories     列出分类")
+    print("  --faq            常见问题")
+    print("  --glossary       术语表")
+    print("  --examples       代码示例")
+    print("  --command CMD    命令帮助")
+    print("  --example-id ID  查看示例")
+    print("  --term TERM      查看术语")
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -1714,6 +1849,32 @@ def build_parser():
                               dest="from_current",
                               help="从当前偏好创建配置文件")
     prefs_parser.set_defaults(func=cmd_prefs)
+
+    # 阶段46: help命令 - 帮助系统与文档集成
+    help_parser = subparsers.add_parser("help", help="帮助系统与文档")
+    help_parser.add_argument("topic", type=str, nargs="?",
+                             default=None,
+                             help="主题ID")
+    help_parser.add_argument("--search", type=str, default=None,
+                             help="搜索主题")
+    help_parser.add_argument("--list", action="store_true",
+                             help="列出所有主题")
+    help_parser.add_argument("--categories", action="store_true",
+                             help="列出分类")
+    help_parser.add_argument("--faq", action="store_true",
+                             help="常见问题")
+    help_parser.add_argument("--glossary", action="store_true",
+                             help="术语表")
+    help_parser.add_argument("--examples", action="store_true",
+                             help="代码示例")
+    help_parser.add_argument("--command", type=str, default=None,
+                             help="命令帮助")
+    help_parser.add_argument("--example-id", type=str, default=None,
+                             dest="example_id",
+                             help="查看指定示例")
+    help_parser.add_argument("--term", type=str, default=None,
+                             help="查看指定术语")
+    help_parser.set_defaults(func=cmd_help)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")
