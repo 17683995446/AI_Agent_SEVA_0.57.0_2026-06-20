@@ -46,18 +46,27 @@ from .scenarios import (Scenario, PresetScenarios, ScenarioRunner,
                         list_scenarios_detailed, compare_scenarios,
                         quick_demo, run_all_scenarios,
                         get_scenario_report)
+from .config_io import (save_config, load_config, config_from_file,
+                        merge_configs, validate_config_file,
+                        ConfigLoader, ConfigWizard)
 
 
 def cmd_run(args):
     """seva run: 启动Agent运行"""
-    print(f"启动SEVA Agent (preset={args.preset}, env={args.env_type}, "
-          f"steps={args.steps})")
-
-    agent = SEVAFactory.create(
-        preset=args.preset,
-        env_type=args.env_type,
-        seed=args.seed
-    )
+    # 阶段35: 支持--config从文件加载配置
+    if hasattr(args, "config") and args.config:
+        print(f"从配置文件加载: {args.config}")
+        agent = config_from_file(args.config, env_type=args.env_type,
+                                 seed=args.seed)
+        print(f"Agent已从配置文件创建")
+    else:
+        print(f"启动SEVA Agent (preset={args.preset}, env={args.env_type}, "
+              f"steps={args.steps})")
+        agent = SEVAFactory.create(
+            preset=args.preset,
+            env_type=args.env_type,
+            seed=args.seed
+        )
 
     print(f"Agent已创建，开始运行 {args.steps} 步...")
     verbose = args.verbose
@@ -107,6 +116,12 @@ def cmd_config(args):
         return _config_show(args)
     elif args.config_action == "validate":
         return _config_validate(args)
+    elif args.config_action == "save":
+        return _config_save(args)
+    elif args.config_action == "load":
+        return _config_load(args)
+    elif args.config_action == "wizard":
+        return _config_wizard(args)
     else:
         print(f"未知config子命令: {args.config_action}")
         return 1
@@ -118,12 +133,90 @@ def _config_init(args):
     config_dict = config.to_dict()
 
     output = args.output or "seva_config.json"
-    with open(output, "w") as f:
-        json.dump(config_dict, f, indent=2, ensure_ascii=False)
+    # 阶段35: 根据扩展名选择格式
+    save_config(config, output)
 
     print(f"配置文件已生成: {output}")
     print(f"  预设: {args.preset}")
     print(f"  Section数: {len(config_dict)}")
+    return 0
+
+
+def _config_save(args):
+    """阶段35: 保存配置到YAML/JSON文件"""
+    wizard = ConfigWizard()
+    config = wizard.generate(
+        preset=args.preset,
+        env_type=getattr(args, "env_type", "mixed"),
+        steps=getattr(args, "steps", 100),
+    )
+    output = args.output or "seva_config.yaml"
+    save_config(config, output)
+    print(f"配置已保存到: {output}")
+    print(f"  预设: {args.preset}")
+    print(f"  格式: {output.split('.')[-1]}")
+    return 0
+
+
+def _config_load(args):
+    """阶段35: 从文件加载并显示配置"""
+    file_path = args.file
+    if not os.path.exists(file_path):
+        print(f"错误: 文件不存在: {file_path}")
+        return 1
+
+    try:
+        config = load_config(file_path)
+        config_dict = config.to_dict()
+
+        print(f"\n已加载配置: {file_path}")
+        print("="*50)
+
+        if args.section:
+            if args.section in config_dict:
+                print(f"\n[{args.section}]")
+                for k, v in config_dict[args.section].items():
+                    print(f"  {k} = {v}")
+            else:
+                print(f"未知section: {args.section}")
+                print(f"可用: {list(config_dict.keys())}")
+                return 1
+        else:
+            for section, items in config_dict.items():
+                if section == "_meta":
+                    continue
+                print(f"\n[{section}]")
+                for k, v in items.items():
+                    print(f"  {k} = {v}")
+        return 0
+    except Exception as e:
+        print(f"加载配置失败: {e}")
+        return 1
+
+
+def _config_wizard(args):
+    """阶段35: 配置向导"""
+    print("\nSEVA配置向导")
+    print("="*50)
+
+    wizard = ConfigWizard(verbose=True)
+    config = wizard.generate(
+        preset=args.preset,
+        env_type=getattr(args, "env_type", "mixed"),
+        steps=getattr(args, "steps", 100),
+        seed=getattr(args, "seed", 42),
+    )
+
+    output = args.output
+    if output:
+        wizard.save(config, output)
+        print(f"\n配置已保存到: {output}")
+    else:
+        print("\n生成的配置:")
+        for section, items in config.to_dict().items():
+            print(f"\n[{section}]")
+            for k, v in items.items():
+                print(f"  {k} = {v}")
     return 0
 
 
@@ -548,6 +641,9 @@ def build_parser():
                            help="详细输出")
     run_parser.add_argument("--output", type=str, default=None,
                            help="结果保存文件路径")
+    # 阶段35: 支持从配置文件加载
+    run_parser.add_argument("--config", type=str, default=None,
+                           help="从配置文件加载 (YAML/JSON)")
     run_parser.set_defaults(func=cmd_run)
 
     # config命令
@@ -573,6 +669,40 @@ def build_parser():
     val_parser.add_argument("--preset", type=str, default="standard",
                            choices=PresetConfigs.list_presets(),
                            help="预设模板 (默认: standard)")
+
+    # 阶段35: config save - 保存配置到YAML/JSON
+    save_parser = config_sub.add_parser("save", help="保存配置到文件")
+    save_parser.add_argument("--preset", type=str, default="standard",
+                            choices=PresetConfigs.list_presets(),
+                            help="预设模板 (默认: standard)")
+    save_parser.add_argument("--output", type=str, default=None,
+                            help="输出文件路径 (默认: seva_config.yaml)")
+    save_parser.add_argument("--env-type", type=str, default="mixed",
+                            choices=["blank", "mixed", "drift", "adversarial"],
+                            help="环境类型 (默认: mixed)")
+    save_parser.add_argument("--steps", type=int, default=100,
+                            help="运行步数 (默认: 100)")
+
+    # 阶段35: config load - 从文件加载配置
+    load_parser = config_sub.add_parser("load", help="从文件加载配置")
+    load_parser.add_argument("file", type=str, help="配置文件路径")
+    load_parser.add_argument("--section", type=str, default=None,
+                            help="只显示指定section")
+
+    # 阶段35: config wizard - 配置向导
+    wizard_parser = config_sub.add_parser("wizard", help="配置向导")
+    wizard_parser.add_argument("--preset", type=str, default="standard",
+                              choices=PresetConfigs.list_presets(),
+                              help="预设模板 (默认: standard)")
+    wizard_parser.add_argument("--output", type=str, default=None,
+                              help="保存到文件路径")
+    wizard_parser.add_argument("--env-type", type=str, default="mixed",
+                              choices=["blank", "mixed", "drift", "adversarial"],
+                              help="环境类型 (默认: mixed)")
+    wizard_parser.add_argument("--steps", type=int, default=100,
+                              help="运行步数 (默认: 100)")
+    wizard_parser.add_argument("--seed", type=int, default=42,
+                              help="随机种子 (默认: 42)")
 
     config_parser.set_defaults(func=cmd_config)
 

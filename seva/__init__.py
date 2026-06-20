@@ -4,6 +4,7 @@
 
 阶段29: 统一API入口
 阶段34: 预设场景与开箱即用
+阶段35: 配置文件支持
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -11,6 +12,10 @@
     from seva import run_scenario, list_scenarios
     print(list_scenarios())  # 查看可用场景
     result = run_scenario("quick_validation")  # 一键运行场景
+
+    from seva import save_config, load_config, config_from_file
+    save_config(agent.config, "my_config.yaml")  # 保存配置
+    agent = config_from_file("my_config.yaml")   # 从文件创建Agent
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -26,6 +31,9 @@ from .scenarios import (Scenario, PresetScenarios, ScenarioRunner,
                         list_scenarios_detailed, compare_scenarios,
                         quick_demo, run_all_scenarios,
                         get_scenario_report)
+from .config_io import (save_config, load_config, config_from_file,
+                        merge_configs, validate_config_file,
+                        ConfigLoader, ConfigWizard)
 
 __all__ = [
     "Config",
@@ -59,6 +67,13 @@ __all__ = [
     "quick_demo",
     "run_all_scenarios",
     "get_scenario_report",
+    "save_config",
+    "load_config",
+    "config_from_file",
+    "merge_configs",
+    "validate_config_file",
+    "ConfigLoader",
+    "ConfigWizard",
 ]
 
-__version__ = "0.34.0"
+__version__ = "0.35.0"

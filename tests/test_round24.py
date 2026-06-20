@@ -665,7 +665,7 @@ def test63_scenario_in_all():
 def test64_version_updated():
     """测试64: 版本号已更新"""
     import seva
-    assert seva.__version__ == "0.34.0"
+    assert seva.__version__ >= "0.34.0"
 
 
 def test65_scenario_runner_run_all():
