@@ -111,6 +111,13 @@ class Config:
             "reward_threshold": 0.0,          # 非负reward即视为成功（步进成本-0.01环境下）
             "acquisition_interval": 50,       # 技能获取检测间隔（周期）
         },
+        # 阶段27: 多Agent协作
+        "multiagent": {
+            "max_agents": 20,                 # 最大Agent数
+            "max_messages": 1000,             # 消息队列上限
+            "heartbeat_timeout": 300,         # 心跳超时（秒）
+            "enable_coordination": True,      # 是否启用协调
+        },
     }
 
     def __init__(self, env_overrides: Optional[Dict] = None,

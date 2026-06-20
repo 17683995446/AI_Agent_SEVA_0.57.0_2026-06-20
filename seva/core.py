@@ -22,6 +22,7 @@ from .decision import DecisionMaker
 from .executor import Executor
 from .task import TaskManager
 from .skill import SkillLibrary, SkillAcquisition
+from .multiagent import MultiAgentCoordinator, AgentInfo, AgentStatus
 from .types import (PerceptionState, Drives, Goal, Prediction, Action,
                     ActionType, ErrorSignal, ErrorAttribution, ExperienceRecord,
                     SafetyReviewResult, gen_id)
@@ -66,6 +67,8 @@ class SelfEvolvingAgentCore:
         self.modules["skill_acquisition"] = SkillAcquisition(
             self.config, self.modules["skill_library"]
         )
+        # 阶段27: 多Agent协作
+        self.modules["coordinator"] = MultiAgentCoordinator(self.config)
 
         # 运行状态
         self.cycle_count = 0
@@ -334,6 +337,19 @@ class SelfEvolvingAgentCore:
                 }
             })
 
+            # 阶段27: 多Agent协调状态（轻量级，不每周期执行协调）
+            coord_status = self.modules["coordinator"].get_status()
+            cycle_log.append({
+                "stage": "coordination",
+                "time": 0.0,
+                "result": {
+                    "total_agents": coord_status["total_agents"],
+                    "available_agents": coord_status["available_agents"],
+                    "busy_agents": coord_status["busy_agents"],
+                    "total_distributed": coord_status["total_tasks_distributed"],
+                }
+            })
+
             # ===== 阶段9：在线学习 =====
             t0 = time.time()
             # 用误差更新预测模型参数（简化）
@@ -502,6 +518,8 @@ class SelfEvolvingAgentCore:
         task_report = self.modules["task_manager"].get_progress_report()
         # 阶段26: 包含技能统计
         skill_stats = self.modules["skill_library"].get_stats()
+        # 阶段27: 包含多Agent协调统计
+        coord_stats = self.modules["coordinator"].get_status()
         return {
             "cycle_count": self.cycle_count,
             "total_reward": self.metrics["total_reward"],
@@ -517,6 +535,7 @@ class SelfEvolvingAgentCore:
             )) if self.metrics["action_types"] else {},
             "task_stats": task_report,
             "skill_stats": skill_stats,
+            "coord_stats": coord_stats,
         }
 
     def get_handled_messages(self) -> List:
