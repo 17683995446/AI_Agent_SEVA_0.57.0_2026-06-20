@@ -21,6 +21,7 @@ from .safety import SafetyEthicsModule
 from .decision import DecisionMaker
 from .executor import Executor
 from .task import TaskManager
+from .skill import SkillLibrary, SkillAcquisition
 from .types import (PerceptionState, Drives, Goal, Prediction, Action,
                     ActionType, ErrorSignal, ErrorAttribution, ExperienceRecord,
                     SafetyReviewResult, gen_id)
@@ -60,6 +61,11 @@ class SelfEvolvingAgentCore:
         self.modules["decision_maker"] = DecisionMaker(self.config)
         self.modules["executor"] = Executor(self.config)
         self.modules["task_manager"] = TaskManager(self.config)
+        # 阶段26: 技能学习与增强
+        self.modules["skill_library"] = SkillLibrary(self.config)
+        self.modules["skill_acquisition"] = SkillAcquisition(
+            self.config, self.modules["skill_library"]
+        )
 
         # 运行状态
         self.cycle_count = 0
@@ -184,15 +190,31 @@ class SelfEvolvingAgentCore:
                                          "horizon": prediction.horizon}})
             logger.debug(f"[Core] 阶段4预测完成 time={time.time()-t0:.4f}s")
 
-            # ===== 阶段5：动作选择 =====
+            # ===== 阶段5：动作选择（阶段26: 优先使用技能） =====
             t0 = time.time()
-            action = self.modules["decision_maker"].select_action(
-                drives, goals, perception, prediction
-            )
+            skill_used = None
+            # 阶段26: 先尝试从技能库检索匹配技能
+            if goals:
+                skill_used = self.modules["skill_library"].retrieve(
+                    goals[0], drives
+                )
+            if skill_used is not None:
+                # 使用技能动作
+                action = skill_used.to_action()
+                logger.debug(f"[Core] 使用技能 {skill_used.name} "
+                            f"q={skill_used.q_value:.3f}")
+            else:
+                # 无匹配技能，回退到默认决策
+                action = self.modules["decision_maker"].select_action(
+                    drives, goals, perception, prediction
+                )
             cycle_log.append({"stage": "decision_maker", "time": time.time()-t0,
                               "result": {"type": action.type.value,
-                                         "source": action.source}})
-            logger.debug(f"[Core] 阶段5决策完成 time={time.time()-t0:.4f}s")
+                                         "source": action.source,
+                                         "skill_used": skill_used.name
+                                                      if skill_used else None}})
+            logger.debug(f"[Core] 阶段5决策完成 time={time.time()-t0:.4f}s "
+                        f"source={action.source}")
 
             # ===== 阶段6：安全审查 =====
             t0 = time.time()
@@ -268,6 +290,47 @@ class SelfEvolvingAgentCore:
                     "current_task": task_report["current_task"],
                     "total_completed": task_report["total_completed"],
                     "total_failed": task_report["total_failed"],
+                }
+            })
+
+            # 阶段26: 技能更新与获取
+            # 1) 如果使用了技能，用真实reward更新技能Q值
+            if skill_used is not None:
+                self.modules["skill_library"].update(
+                    skill_used.skill_id,
+                    actual_reward,
+                    success=actual_reward > 0
+                )
+            # 2) 观察经验用于技能获取
+            if goals and action:
+                obs_record = ExperienceRecord(
+                    record_id=gen_id("exp"),
+                    timestamp=time.time(),
+                    state=perception,
+                    drives=drives,
+                    goal=goals[0],
+                    prediction=prediction,
+                    action=action,
+                    error=error,
+                    attribution=attribution,
+                    reward=actual_reward
+                )
+                self.modules["skill_acquisition"].observe(obs_record)
+            # 3) 定期检测并创建新技能
+            if (self.cycle_count %
+                self.config.get("skill", "acquisition_interval") == 0
+                and self.cycle_count > 0):
+                self.modules["skill_acquisition"].detect_and_create()
+                self.modules["skill_library"].prune()
+            skill_stats = self.modules["skill_library"].get_stats()
+            cycle_log.append({
+                "stage": "skill_update",
+                "time": 0.0,
+                "result": {
+                    "skill_used": skill_used.name if skill_used else None,
+                    "total_skills": skill_stats["total_skills"],
+                    "reliable_skills": skill_stats["reliable_skills"],
+                    "total_uses": skill_stats["total_uses"],
                 }
             })
 
@@ -437,6 +500,8 @@ class SelfEvolvingAgentCore:
         """获取指标"""
         # 阶段25: 包含长任务统计
         task_report = self.modules["task_manager"].get_progress_report()
+        # 阶段26: 包含技能统计
+        skill_stats = self.modules["skill_library"].get_stats()
         return {
             "cycle_count": self.cycle_count,
             "total_reward": self.metrics["total_reward"],
@@ -451,6 +516,7 @@ class SelfEvolvingAgentCore:
                 *np.unique(self.metrics["action_types"], return_counts=True)
             )) if self.metrics["action_types"] else {},
             "task_stats": task_report,
+            "skill_stats": skill_stats,
         }
 
     def get_handled_messages(self) -> List:

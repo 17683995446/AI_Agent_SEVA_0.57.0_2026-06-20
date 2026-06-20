@@ -101,6 +101,16 @@ class Config:
             "reward_step": -0.01,
             "max_steps": 10000,
         },
+        # 阶段26: 技能学习与增强
+        "skill": {
+            "max_skills": 100,                # 技能库最大容量
+            "learning_rate": 0.1,             # TD学习率
+            "prune_threshold": 0.1,           # 价值修剪阈值
+            "min_q_value": -2.0,              # Q值下限
+            "pattern_threshold": 3,           # 模式重复阈值
+            "reward_threshold": 0.0,          # 非负reward即视为成功（步进成本-0.01环境下）
+            "acquisition_interval": 50,       # 技能获取检测间隔（周期）
+        },
     }
 
     def __init__(self, env_overrides: Optional[Dict] = None,
