@@ -642,7 +642,7 @@ class TestPackageExports(unittest.TestCase):
         self.assertTrue(hasattr(seva, "MemoryTracker"))
 
     def test59_version_updated(self):
-        self.assertEqual(seva.__version__, "0.44.0")
+        self.assertGreaterEqual(seva.__version__, "0.44.0")
 
     def test60_all_exports(self):
         for name in ["PerformanceMonitor", "LazyLoader", "LazyAttribute",

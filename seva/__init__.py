@@ -14,6 +14,7 @@
 阶段42: 智能命令补全与提示
 阶段43: 交互式教程系统
 阶段44: 性能优化与启动加速
+阶段45: 用户偏好与个性化设置
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -50,6 +51,14 @@
     with PerformanceMonitor().measure("my_op"):
         do_something()  # 性能监控
     print(get_performance_report())  # 查看性能报告
+
+    from seva import (Preferences, Profile, ProfileManager,
+                      get_preference, set_preference, list_preferences,
+                      create_profile, switch_profile)
+    set_preference("display.theme", "dark")  # 设置偏好
+    print(get_preference("display.theme"))    # 获取偏好
+    create_profile("work", from_current=True) # 创建配置文件
+    switch_profile("work")                    # 切换配置文件
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -97,6 +106,17 @@ from .performance import (PerformanceMonitor, LazyLoader, LazyAttribute,
                           reset_performance, optimize_agent,
                           benchmark, benchmark_report,
                           startup_benchmark)
+from .preferences import (PreferenceItem, PreferenceSchema, Preferences,
+                          Profile, ProfileManager,
+                          get_preference, set_preference,
+                          reset_preference, reset_all_preferences,
+                          list_preferences, list_preference_schema,
+                          save_preferences, load_preferences,
+                          export_preferences, import_preferences,
+                          get_preferences_report,
+                          create_profile, delete_profile,
+                          switch_profile, list_profiles,
+                          get_current_profile, get_profile)
 
 __all__ = [
     "Config",
@@ -196,6 +216,28 @@ __all__ = [
     "benchmark",
     "benchmark_report",
     "startup_benchmark",
+    "PreferenceItem",
+    "PreferenceSchema",
+    "Preferences",
+    "Profile",
+    "ProfileManager",
+    "get_preference",
+    "set_preference",
+    "reset_preference",
+    "reset_all_preferences",
+    "list_preferences",
+    "list_preference_schema",
+    "save_preferences",
+    "load_preferences",
+    "export_preferences",
+    "import_preferences",
+    "get_preferences_report",
+    "create_profile",
+    "delete_profile",
+    "switch_profile",
+    "list_profiles",
+    "get_current_profile",
+    "get_profile",
 ]
 
-__version__ = "0.44.0"
+__version__ = "0.45.0"

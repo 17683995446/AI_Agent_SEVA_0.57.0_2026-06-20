@@ -981,6 +981,208 @@ def cmd_perf(args):
     return 0
 
 
+def cmd_prefs(args):
+    """seva prefs: 用户偏好与个性化设置（阶段45）"""
+    from .preferences import (Preferences, PreferenceSchema,
+                              get_preference, set_preference,
+                              reset_preference, reset_all_preferences,
+                              list_preferences, list_preference_schema,
+                              save_preferences, load_preferences,
+                              export_preferences, import_preferences,
+                              get_preferences_report,
+                              ProfileManager, Profile,
+                              create_profile, delete_profile,
+                              switch_profile, list_profiles,
+                              get_current_profile, get_profile)
+
+    # 配置文件管理
+    if args.profile_action:
+        pm = ProfileManager()
+        if args.profile_action == "list":
+            profiles = list_profiles()
+            if not profiles:
+                print("暂无配置文件")
+                print("使用 'seva prefs --profile create <name>' 创建")
+                return 0
+            print(f"\nSEVA配置文件 ({len(profiles)}个):")
+            print("=" * 60)
+            current = get_current_profile()
+            for p in profiles:
+                marker = " *" if p["name"] == current else "  "
+                print(f"{marker} {p['name']}")
+                print(f"     偏好数: {p['preference_count']}")
+                print(f"     创建: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(p['created_at']))}")
+                print(f"     最后使用: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(p['last_used']))}")
+            print()
+            return 0
+
+        if args.profile_action == "create":
+            if not args.profile_name:
+                print("错误: 需要指定配置文件名")
+                return 1
+            profile = create_profile(args.profile_name,
+                                     from_current=args.from_current)
+            print(f"已创建配置文件: {args.profile_name}")
+            print(f"  偏好数: {len(profile.preferences)}")
+            return 0
+
+        if args.profile_action == "delete":
+            if not args.profile_name:
+                print("错误: 需要指定配置文件名")
+                return 1
+            if delete_profile(args.profile_name):
+                print(f"已删除配置文件: {args.profile_name}")
+                return 0
+            else:
+                print(f"删除失败（可能不存在或是当前配置）")
+                return 1
+
+        if args.profile_action == "switch":
+            if not args.profile_name:
+                print("错误: 需要指定配置文件名")
+                return 1
+            if switch_profile(args.profile_name):
+                print(f"已切换到配置文件: {args.profile_name}")
+                return 0
+            else:
+                print(f"切换失败（配置文件不存在）")
+                return 1
+
+        if args.profile_action == "show":
+            if not args.profile_name:
+                current = get_current_profile()
+                if current:
+                    args.profile_name = current
+                else:
+                    print("无当前配置文件")
+                    return 0
+            profile = get_profile(args.profile_name)
+            if profile is None:
+                print(f"配置文件不存在: {args.profile_name}")
+                return 1
+            print(f"\n配置文件: {profile.name}")
+            print("=" * 50)
+            print(f"创建时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(profile.created_at))}")
+            print(f"最后使用: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(profile.last_used))}")
+            print(f"偏好数量: {len(profile.preferences)}")
+            if profile.preferences:
+                print("\n偏好:")
+                for k, v in profile.preferences.items():
+                    print(f"  {k} = {v}")
+            return 0
+
+    # 设置偏好
+    if args.set:
+        parts = args.set.split("=", 1)
+        if len(parts) != 2:
+            print("错误: 格式应为 key=value")
+            return 1
+        key, value = parts
+        # 尝试转换值类型
+        item = PreferenceSchema.get(key)
+        if item is None:
+            print(f"错误: 未知偏好键 '{key}'")
+            print("使用 'seva prefs --list' 查看可用偏好")
+            return 1
+        # 类型转换
+        try:
+            if item.value_type == bool:
+                value = value.lower() in ("true", "1", "yes", "on")
+            elif item.value_type == int:
+                value = int(value)
+            elif item.value_type == float:
+                value = float(value)
+        except ValueError:
+            print(f"错误: 值类型不匹配，期望 {item.value_type.__name__}")
+            return 1
+        if set_preference(key, value):
+            print(f"已设置: {key} = {value}")
+            return 0
+        else:
+            print(f"设置失败（值不合法）")
+            if item.choices:
+                print(f"可选值: {item.choices}")
+            return 1
+
+    # 获取偏好
+    if args.get:
+        value = get_preference(args.get)
+        print(f"{args.get} = {value}")
+        return 0
+
+    # 重置偏好
+    if args.reset:
+        if args.reset == "all":
+            reset_all_preferences()
+            print("已重置所有偏好")
+        else:
+            if reset_preference(args.reset):
+                print(f"已重置: {args.reset}")
+            else:
+                print(f"重置失败（键不存在）")
+                return 1
+        return 0
+
+    # 列出偏好
+    if args.list:
+        if args.category:
+            prefs = list_preferences(args.category)
+        else:
+            prefs = list_preferences()
+        print(f"\n用户偏好 ({len(prefs)}项):")
+        print("=" * 60)
+        current_category = None
+        for key in sorted(prefs.keys()):
+            item = PreferenceSchema.get(key)
+            if item and item.category != current_category:
+                current_category = item.category
+                print(f"\n[{current_category}]")
+            value = prefs[key]
+            default_marker = "" if Preferences().has(key) else " (默认)"
+            print(f"  {key} = {value}{default_marker}")
+        print()
+        return 0
+
+    # 列出偏好定义
+    if args.schema:
+        if args.category:
+            schema = list_preference_schema(args.category)
+        else:
+            schema = list_preference_schema()
+        print(f"\n偏好定义 ({len(schema)}项):")
+        print("=" * 60)
+        for key, info in schema.items():
+            print(f"\n  {key}:")
+            print(f"    类型: {info['value_type']}")
+            print(f"    默认: {info['default']}")
+            print(f"    分类: {info['category']}")
+            if info["description"]:
+                print(f"    描述: {info['description']}")
+            if info["choices"]:
+                print(f"    可选: {info['choices']}")
+            if info["min_value"] is not None:
+                print(f"    最小: {info['min_value']}")
+            if info["max_value"] is not None:
+                print(f"    最大: {info['max_value']}")
+        return 0
+
+    # 导出
+    if args.export:
+        path = export_preferences(args.export)
+        print(f"已导出偏好到: {path}")
+        return 0
+
+    # 导入
+    if args.import_file:
+        count = import_preferences(args.import_file)
+        print(f"已导入 {count} 项偏好")
+        return 0
+
+    # 默认显示报告
+    print(get_preferences_report())
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -1480,6 +1682,38 @@ def build_parser():
     perf_parser.add_argument("--seed", type=int, default=42,
                              help="随机种子 (默认: 42)")
     perf_parser.set_defaults(func=cmd_perf)
+
+    # 阶段45: prefs命令 - 用户偏好与个性化设置
+    prefs_parser = subparsers.add_parser("prefs", help="用户偏好与个性化设置")
+    prefs_parser.add_argument("--get", type=str, default=None,
+                              help="获取偏好值")
+    prefs_parser.add_argument("--set", type=str, default=None,
+                              help="设置偏好值 (key=value)")
+    prefs_parser.add_argument("--reset", type=str, default=None,
+                              help="重置偏好 (key 或 all)")
+    prefs_parser.add_argument("--list", action="store_true",
+                              help="列出所有偏好")
+    prefs_parser.add_argument("--schema", action="store_true",
+                              help="列出偏好定义")
+    prefs_parser.add_argument("--category", type=str, default=None,
+                              help="按分类筛选")
+    prefs_parser.add_argument("--export", type=str, default=None,
+                              help="导出偏好到文件")
+    prefs_parser.add_argument("--import-file", type=str, default=None,
+                              dest="import_file",
+                              help="从文件导入偏好")
+    prefs_parser.add_argument("--profile", type=str, default=None,
+                              dest="profile_action",
+                              choices=["list", "create", "delete",
+                                       "switch", "show"],
+                              help="配置文件操作")
+    prefs_parser.add_argument("profile_name", type=str, nargs="?",
+                              default=None,
+                              help="配置文件名")
+    prefs_parser.add_argument("--from-current", action="store_true",
+                              dest="from_current",
+                              help="从当前偏好创建配置文件")
+    prefs_parser.set_defaults(func=cmd_prefs)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")
