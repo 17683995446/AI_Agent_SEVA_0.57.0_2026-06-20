@@ -1470,7 +1470,6 @@ def cmd_progress(args):
                            track_progress, track_progress_async,
                            format_status, get_progress_report,
                            STATUS_ICONS, STATUS_ICONS_ASCII)
-
     if args.demo:
         # 演示进度条
         print("演示进度条...")
@@ -1556,6 +1555,107 @@ def cmd_progress(args):
     print("  from seva import ProgressBar, Spinner, track_progress")
     print("  with ProgressBar('处理', total=100) as bar:")
     print("      for i in range(100): bar.update(1)")
+    return 0
+
+
+def cmd_suggest(args):
+    """seva suggest: 智能建议与推荐系统（阶段50）"""
+    from .suggestions import (SuggestionEngine, Suggestion,
+                              SuggestionType, SuggestionPriority,
+                              UserSkillLevel, ContextAnalyzer,
+                              UserProfiler, Recommender,
+                              suggest, recommend, recommend_commands,
+                              recommend_learning, get_suggestions,
+                              get_user_profile, get_user_profile_report,
+                              record_command, record_feature,
+                              record_session, reset_user_profile,
+                              get_skill_level, analyze_context)
+
+    if args.profile:
+        # 显示用户画像
+        print(get_user_profile_report())
+        return 0
+
+    if args.reset_profile:
+        reset_user_profile()
+        print("已重置用户画像")
+        return 0
+
+    if args.recommend_config:
+        # 推荐配置
+        skill = get_skill_level()
+        rec = recommend(scenario=args.recommend_config,
+                        skill_level=skill)
+        print(f"\n配置推荐 (场景: {args.recommend_config}):")
+        print("=" * 50)
+        print(f"  推荐预设: {rec['preset']}")
+        print(f"  描述: {rec['description']}")
+        print(f"  原因: {rec['reason']}")
+        return 0
+
+    if args.recommend_commands:
+        # 推荐命令
+        skill = get_skill_level()
+        profile = get_user_profile()
+        cmds = recommend_commands(
+            skill_level=skill,
+            used_commands=profile["commands_used"])
+        print(f"\n命令推荐 (技能水平: {skill}):")
+        print("=" * 50)
+        for c in cmds:
+            marker = "✓" if c["already_used"] else " "
+            print(f"  {marker} seva {c['command']:<25} {c['description']}")
+        return 0
+
+    if args.recommend_learning:
+        # 推荐学习资源
+        skill = get_skill_level()
+        profile = get_user_profile()
+        resources = recommend_learning(
+            skill_level=skill,
+            used_features=profile["features_used"])
+        print(f"\n学习资源推荐 (技能水平: {skill}):")
+        print("=" * 50)
+        for r in resources:
+            marker = "✓" if r["already_used"] else " "
+            print(f"  {marker} {r['resource_id']:<20} {r['description']}")
+        return 0
+
+    if args.analyze:
+        # 分析Agent上下文
+        agent = SEVAFactory.create(args.preset)
+        if args.steps > 0:
+            run(agent, steps=args.steps)
+        context = analyze_context(agent)
+        print(f"\nAgent上下文分析:")
+        print("=" * 50)
+        for k, v in context.items():
+            if k == "issues":
+                if v:
+                    print(f"  问题:")
+                    for issue in v:
+                        print(f"    - {issue}")
+            else:
+                print(f"  {k}: {v}")
+        return 0
+
+    # 默认：生成建议
+    if args.preset and args.steps > 0:
+        agent = SEVAFactory.create(args.preset)
+        run(agent, steps=args.steps)
+        print(get_suggestions(agent))
+    else:
+        # 无Agent时基于用户画像生成建议
+        engine = SuggestionEngine()
+        suggestions = engine.generate()
+        if not suggestions:
+            print("暂无建议，系统运行良好")
+        else:
+            print(f"\nSEVA智能建议 ({len(suggestions)}条):")
+            print("=" * 60)
+            for s in suggestions:
+                print()
+                print(s.format())
     return 0
 
 
@@ -2164,6 +2264,33 @@ def build_parser():
     progress_parser.add_argument("--ascii", action="store_true",
                                  help="使用ASCII模式（无Unicode）")
     progress_parser.set_defaults(func=cmd_progress)
+
+    # 阶段50: suggest命令 - 智能建议与推荐系统
+    suggest_parser = subparsers.add_parser("suggest",
+                                           help="智能建议与推荐系统")
+    suggest_parser.add_argument("--profile", action="store_true",
+                                help="查看用户画像")
+    suggest_parser.add_argument("--reset-profile", action="store_true",
+                                dest="reset_profile",
+                                help="重置用户画像")
+    suggest_parser.add_argument("--recommend-config", type=str,
+                                default=None,
+                                dest="recommend_config",
+                                help="推荐配置 (指定场景)")
+    suggest_parser.add_argument("--recommend-commands", action="store_true",
+                                dest="recommend_commands",
+                                help="推荐命令")
+    suggest_parser.add_argument("--recommend-learning", action="store_true",
+                                dest="recommend_learning",
+                                help="推荐学习资源")
+    suggest_parser.add_argument("--analyze", action="store_true",
+                                help="分析Agent上下文")
+    suggest_parser.add_argument("--preset", type=str, default="easy",
+                                choices=PresetConfigs.list_presets(),
+                                help="预设模板 (默认: easy)")
+    suggest_parser.add_argument("--steps", type=int, default=0,
+                                help="运行步数 (默认: 0)")
+    suggest_parser.set_defaults(func=cmd_suggest)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")

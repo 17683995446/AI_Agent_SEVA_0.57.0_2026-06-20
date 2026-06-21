@@ -19,6 +19,7 @@
 阶段47: 国际化与多语言支持
 阶段48: 友好错误处理与恢复
 阶段49: 进度反馈与状态指示
+阶段50: 智能建议与推荐系统
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -87,6 +88,12 @@
             bar.update(1)
     for item in track_progress(items, "处理"):         # 跟踪迭代
         process(item)
+
+    from seva import suggest, recommend, get_suggestions
+    suggestions = suggest(agent)                       # 生成智能建议
+    for s in suggestions:
+        print(s.format())
+    print(get_suggestions(agent))                      # 建议报告
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -176,6 +183,15 @@ from .progress import (ProgressBar, Spinner, StatusIndicator, TaskProgress,
                        progress_bar, spinner, status,
                        track_progress, track_progress_async,
                        format_status, get_progress_report)
+from .suggestions import (Suggestion, SuggestionType, SuggestionPriority,
+                          UserSkillLevel, ContextAnalyzer, UserProfiler,
+                          Recommender, SuggestionEngine,
+                          suggest, recommend, recommend_commands,
+                          recommend_learning, get_suggestions,
+                          get_user_profile, get_user_profile_report,
+                          record_command, record_feature, record_error,
+                          record_session, reset_user_profile,
+                          get_skill_level, analyze_context)
 
 __all__ = [
     "Config",
@@ -367,6 +383,28 @@ __all__ = [
     "track_progress_async",
     "format_status",
     "get_progress_report",
+    "Suggestion",
+    "SuggestionType",
+    "SuggestionPriority",
+    "UserSkillLevel",
+    "ContextAnalyzer",
+    "UserProfiler",
+    "Recommender",
+    "SuggestionEngine",
+    "suggest",
+    "recommend",
+    "recommend_commands",
+    "recommend_learning",
+    "get_suggestions",
+    "get_user_profile",
+    "get_user_profile_report",
+    "record_command",
+    "record_feature",
+    "record_error",
+    "record_session",
+    "reset_user_profile",
+    "get_skill_level",
+    "analyze_context",
 ]
 
-__version__ = "0.49.0"
+__version__ = "0.50.0"
