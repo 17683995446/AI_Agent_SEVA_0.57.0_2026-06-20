@@ -18,6 +18,7 @@
 阶段46: 帮助系统与文档集成
 阶段47: 国际化与多语言支持
 阶段48: 友好错误处理与恢复
+阶段49: 进度反馈与状态指示
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -78,6 +79,14 @@
     result = safe_run(risky_func, default="fallback")  # 安全执行
     result = retry(unstable_func, max_retries=3)       # 重试执行
     print(format_error(some_error))                    # 友好错误格式
+
+    from seva import ProgressBar, Spinner, track_progress, TaskProgress
+    with ProgressBar("处理中", total=100) as bar:      # 进度条
+        for i in range(100):
+            do_something()
+            bar.update(1)
+    for item in track_progress(items, "处理"):         # 跟踪迭代
+        process(item)
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -161,6 +170,12 @@ from .error_handling import (FriendlyError, ErrorRecovery,
                              safe_run, retry, safe_execute,
                              format_error, log_error,
                              get_error_log, clear_error_log)
+from .progress import (ProgressBar, Spinner, StatusIndicator, TaskProgress,
+                       SPINNER_CHARS, SPINNER_CHARS_ASCII,
+                       STATUS_ICONS, STATUS_ICONS_ASCII,
+                       progress_bar, spinner, status,
+                       track_progress, track_progress_async,
+                       format_status, get_progress_report)
 
 __all__ = [
     "Config",
@@ -337,6 +352,21 @@ __all__ = [
     "log_error",
     "get_error_log",
     "clear_error_log",
+    "ProgressBar",
+    "Spinner",
+    "StatusIndicator",
+    "TaskProgress",
+    "SPINNER_CHARS",
+    "SPINNER_CHARS_ASCII",
+    "STATUS_ICONS",
+    "STATUS_ICONS_ASCII",
+    "progress_bar",
+    "spinner",
+    "status",
+    "track_progress",
+    "track_progress_async",
+    "format_status",
+    "get_progress_report",
 ]
 
-__version__ = "0.48.0"
+__version__ = "0.49.0"

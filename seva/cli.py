@@ -1463,6 +1463,102 @@ def cmd_error(args):
     return 0
 
 
+def cmd_progress(args):
+    """seva progress: 进度反馈与状态指示（阶段49）"""
+    from .progress import (ProgressBar, Spinner, StatusIndicator, TaskProgress,
+                           progress_bar, spinner, status,
+                           track_progress, track_progress_async,
+                           format_status, get_progress_report,
+                           STATUS_ICONS, STATUS_ICONS_ASCII)
+
+    if args.demo:
+        # 演示进度条
+        print("演示进度条...")
+        bar = ProgressBar("演示", total=20, use_unicode=not args.ascii)
+        bar.start()
+        for i in range(20):
+            time.sleep(0.02)
+            bar.update(1)
+        bar.finish()
+        print("完成")
+
+        # 演示Spinner
+        print("\n演示Spinner...")
+        with Spinner("处理中...", use_unicode=not args.ascii) as sp:
+            time.sleep(0.5)
+        print("完成")
+
+        # 演示TaskProgress
+        print("\n演示多任务进度...")
+        tracker = TaskProgress(use_unicode=not args.ascii)
+        t1 = tracker.add_task("下载数据", total=10)
+        t2 = tracker.add_task("处理数据", total=10)
+        tracker.start_task(t1)
+        for i in range(10):
+            tracker.update_task(t1)
+            time.sleep(0.01)
+        tracker.complete_task(t1)
+        tracker.start_task(t2)
+        for i in range(10):
+            tracker.update_task(t2)
+            time.sleep(0.01)
+        tracker.complete_task(t2)
+        print(tracker.format())
+        return 0
+
+    if args.status_list:
+        # 列出所有状态图标
+        use_unicode = not args.ascii
+        icons = STATUS_ICONS if use_unicode else STATUS_ICONS_ASCII
+        print(f"\n状态图标 ({'Unicode' if use_unicode else 'ASCII'}模式):")
+        print("=" * 40)
+        for s, icon in icons.items():
+            print(f"  {icon:>4}  {s}")
+        return 0
+
+    if args.track:
+        # 跟踪迭代演示
+        n = args.total or 20
+        print(f"跟踪 {n} 个项目的进度...")
+        items = list(range(n))
+        for item in track_progress(items, "处理",
+                                   use_unicode=not args.ascii):
+            time.sleep(0.02)
+        print("完成")
+        return 0
+
+    if args.tasks:
+        # 多任务演示
+        n = args.total or 5
+        tracker = TaskProgress(use_unicode=not args.ascii)
+        for i in range(3):
+            tracker.add_task(f"任务{i+1}", total=n)
+        for tid in list(tracker.get_all_tasks().keys()):
+            tracker.start_task(tid)
+            for _ in range(n):
+                tracker.update_task(tid)
+                time.sleep(0.01)
+            tracker.complete_task(tid)
+        print(tracker.format())
+        return 0
+
+    # 默认显示帮助
+    print("SEVA进度反馈与状态指示")
+    print("=" * 50)
+    print("\n可用选项:")
+    print("  --demo          演示所有进度组件")
+    print("  --track         跟踪迭代进度")
+    print("  --tasks         多任务进度跟踪")
+    print("  --status-list   列出状态图标")
+    print("  --total N       项目数量 (默认: 20)")
+    print("  --ascii         使用ASCII模式（无Unicode）")
+    print("\nPython API:")
+    print("  from seva import ProgressBar, Spinner, track_progress")
+    print("  with ProgressBar('处理', total=100) as bar:")
+    print("      for i in range(100): bar.update(1)")
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -2050,6 +2146,24 @@ def build_parser():
     error_parser.add_argument("--test", action="store_true",
                               help="测试错误处理功能")
     error_parser.set_defaults(func=cmd_error)
+
+    # 阶段49: progress命令 - 进度反馈与状态指示
+    progress_parser = subparsers.add_parser("progress",
+                                            help="进度反馈与状态指示")
+    progress_parser.add_argument("--demo", action="store_true",
+                                 help="演示所有进度组件")
+    progress_parser.add_argument("--track", action="store_true",
+                                 help="跟踪迭代进度演示")
+    progress_parser.add_argument("--tasks", action="store_true",
+                                 help="多任务进度跟踪演示")
+    progress_parser.add_argument("--status-list", action="store_true",
+                                 dest="status_list",
+                                 help="列出所有状态图标")
+    progress_parser.add_argument("--total", type=int, default=20,
+                                 help="项目数量 (默认: 20)")
+    progress_parser.add_argument("--ascii", action="store_true",
+                                 help="使用ASCII模式（无Unicode）")
+    progress_parser.set_defaults(func=cmd_progress)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")
