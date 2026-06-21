@@ -22,6 +22,7 @@
 阶段50: 智能建议与推荐系统
 阶段51: 可访问性与无障碍支持
 阶段52: 用户行为分析与引导优化
+阶段53: 系统稳定性与容错增强
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -228,6 +229,13 @@ from .analytics import (BehaviorEvent, EventType, SessionState,
                         optimize_guidance, get_behavior_patterns,
                         get_behavior_anomalies, clear_analytics,
                         get_event_count, get_session_count)
+from .stability import (CircuitState, HealthStatus, BackoffStrategy,
+                        CircuitBreaker, CircuitBreakerOpenError, HealthCheckError,
+                        RetryPolicy, retry_with_policy, HealthCheck, FaultRecovery,
+                        StabilityManager, circuit_protected, retryable,
+                        get_stability_manager, get_stability_report,
+                        get_stability_status, reset_stability, circuit,
+                        health_check, recover, protected_call)
 
 __all__ = [
     "Config",
@@ -486,6 +494,27 @@ __all__ = [
     "clear_analytics",
     "get_event_count",
     "get_session_count",
+    "CircuitState",
+    "HealthStatus",
+    "BackoffStrategy",
+    "CircuitBreaker",
+    "CircuitBreakerOpenError",
+    "HealthCheckError",
+    "RetryPolicy",
+    "retry_with_policy",
+    "HealthCheck",
+    "FaultRecovery",
+    "StabilityManager",
+    "circuit_protected",
+    "retryable",
+    "get_stability_manager",
+    "get_stability_report",
+    "get_stability_status",
+    "reset_stability",
+    "circuit",
+    "health_check",
+    "recover",
+    "protected_call",
 ]
 
-__version__ = "0.52.0"
+__version__ = "0.53.0"

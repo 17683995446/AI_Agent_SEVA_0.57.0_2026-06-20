@@ -1848,6 +1848,103 @@ def cmd_analytics(args):
     return 0
 
 
+def cmd_stability(args):
+    """seva stability: 系统稳定性与容错管理（阶段53）"""
+    from .stability import (StabilityManager, CircuitBreaker, CircuitState,
+                            RetryPolicy, BackoffStrategy, HealthCheck, HealthStatus,
+                            FaultRecovery, get_stability_report, reset_stability,
+                            circuit_protected, retryable)
+
+    if args.reset:
+        reset_stability()
+        print("已重置所有稳定性状态")
+        return 0
+
+    if args.demo:
+        # 演示熔断器
+        print("演示熔断器...")
+        StabilityManager.reset_instance()
+        mgr = StabilityManager()
+        cb = mgr.get_circuit_breaker("demo", failure_threshold=3, recovery_timeout=0.5)
+
+        call_count = [0]
+        def flaky():
+            call_count[0] += 1
+            if call_count[0] <= 5:
+                raise ValueError(f"模拟失败 #{call_count[0]}")
+            return "成功"
+
+        for i in range(8):
+            try:
+                result = cb.call(flaky)
+                print(f"  调用{i+1}: {result} (状态: {cb.state.value})")
+            except Exception as e:
+                print(f"  调用{i+1}: {type(e).__name__}: {e} (状态: {cb.state.value})")
+            time.sleep(0.1)
+
+        print(f"\n熔断器统计: {cb.get_stats()}")
+        return 0
+
+    if args.circuit:
+        # 查看熔断器状态
+        mgr = StabilityManager()
+        names = mgr.list_circuit_breakers()
+        if not names:
+            print("无注册熔断器")
+            return 0
+        print("\n熔断器状态:")
+        print("-" * 60)
+        for name in names:
+            cb = mgr.get_circuit_breaker(name)
+            stats = cb.get_stats()
+            print(f"  [{stats['state'].upper():9s}] {name}")
+            print(f"    调用: {stats['total_calls']}, "
+                  f"失败: {stats['total_failures']}, "
+                  f"拒绝: {stats['total_rejected']}")
+            print(f"    失败率: {stats['failure_rate']*100:.1f}%")
+        return 0
+
+    if args.health:
+        # 运行健康检查
+        mgr = StabilityManager()
+        results = mgr.run_health_checks()
+        if not results:
+            print("无注册健康检查")
+            return 0
+        print("\n健康检查结果:")
+        print("-" * 60)
+        for name, status in results.items():
+            print(f"  [{status.value.upper():9s}] {name}")
+        print(f"\n整体健康状态: {mgr.get_overall_health().value}")
+        return 0
+
+    if args.retry_policy:
+        # 显示/设置重试策略
+        mgr = StabilityManager()
+        if args.max_retries is not None or args.backoff is not None:
+            current = mgr.default_retry_policy
+            new_policy = RetryPolicy(
+                max_retries=args.max_retries if args.max_retries is not None else current.max_retries,
+                backoff=BackoffStrategy(args.backoff) if args.backoff else current.backoff,
+                base_delay=current.base_delay,
+                max_delay=current.max_delay,
+            )
+            mgr.default_retry_policy = new_policy
+            print(f"已更新重试策略")
+        rp = mgr.default_retry_policy
+        print(f"\n当前重试策略:")
+        print(f"  最大重试次数: {rp.max_retries}")
+        print(f"  退避策略: {rp.backoff.value}")
+        print(f"  基础延迟: {rp.base_delay}s")
+        print(f"  最大延迟: {rp.max_delay}s")
+        print(f"  随机抖动: {'是' if rp.jitter else '否'}")
+        return 0
+
+    # 默认显示完整报告
+    print(get_stability_report())
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -2597,6 +2694,28 @@ def build_parser():
                              help="输出文件路径 (默认: seva_export.log)")
 
     logs_parser.set_defaults(func=cmd_logs)
+
+    # stability命令（阶段53）
+    stability_parser = subparsers.add_parser("stability",
+                                              help="系统稳定性与容错管理")
+    stability_parser.add_argument("--report", action="store_true",
+                                   help="显示稳定性报告 (默认)")
+    stability_parser.add_argument("--demo", action="store_true",
+                                   help="演示熔断器工作流程")
+    stability_parser.add_argument("--circuit", action="store_true",
+                                   help="查看熔断器状态")
+    stability_parser.add_argument("--health", action="store_true",
+                                   help="运行健康检查")
+    stability_parser.add_argument("--retry-policy", action="store_true",
+                                   help="显示/设置重试策略")
+    stability_parser.add_argument("--max-retries", type=int, default=None,
+                                   help="设置最大重试次数")
+    stability_parser.add_argument("--backoff", type=str, default=None,
+                                   choices=["fixed", "linear", "exponential", "random"],
+                                   help="退避策略")
+    stability_parser.add_argument("--reset", action="store_true",
+                                   help="重置所有稳定性状态")
+    stability_parser.set_defaults(func=cmd_stability)
 
     return parser
 
