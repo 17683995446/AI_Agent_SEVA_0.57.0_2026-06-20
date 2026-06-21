@@ -21,6 +21,7 @@
 阶段49: 进度反馈与状态指示
 阶段50: 智能建议与推荐系统
 阶段51: 可访问性与无障碍支持
+阶段52: 用户行为分析与引导优化
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -101,6 +102,11 @@
     config = AccessibilityConfig(high_contrast=True)  # 高对比度
     text = format_accessible("错误: 文件未找到", config)  # 无障碍格式
     enable_screen_reader(True)                         # 启用屏幕阅读器
+
+    from seva import track_event, get_analytics_report, start_session
+    start_session()                                    # 开始会话
+    track_event("command", name="run", properties={"steps": 100})
+    print(get_analytics_report())                      # 行为分析报告
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -213,6 +219,15 @@ from .accessibility import (AccessibilityConfig, AccessibilityLevel,
                             enable_screen_reader, enable_reduce_motion,
                             set_color_blindness, get_color_blind_palette,
                             get_keybindings, format_keybindings_help)
+from .analytics import (BehaviorEvent, EventType, SessionState,
+                        BehaviorTracker, BehaviorAnalyzer, UsagePattern,
+                        GuidanceOptimizer, AnalyticsReport,
+                        track_event, track_command, track_feature,
+                        track_error, start_session, end_session,
+                        get_analytics_report, get_analytics_summary,
+                        optimize_guidance, get_behavior_patterns,
+                        get_behavior_anomalies, clear_analytics,
+                        get_event_count, get_session_count)
 
 __all__ = [
     "Config",
@@ -449,6 +464,28 @@ __all__ = [
     "get_color_blind_palette",
     "get_keybindings",
     "format_keybindings_help",
+    "BehaviorEvent",
+    "EventType",
+    "SessionState",
+    "BehaviorTracker",
+    "BehaviorAnalyzer",
+    "UsagePattern",
+    "GuidanceOptimizer",
+    "AnalyticsReport",
+    "track_event",
+    "track_command",
+    "track_feature",
+    "track_error",
+    "start_session",
+    "end_session",
+    "get_analytics_report",
+    "get_analytics_summary",
+    "optimize_guidance",
+    "get_behavior_patterns",
+    "get_behavior_anomalies",
+    "clear_analytics",
+    "get_event_count",
+    "get_session_count",
 ]
 
-__version__ = "0.51.0"
+__version__ = "0.52.0"

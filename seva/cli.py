@@ -1761,6 +1761,93 @@ def cmd_accessibility(args):
     return 0
 
 
+def cmd_analytics(args):
+    """seva analytics: 用户行为分析与引导优化（阶段52）"""
+    from .analytics import (BehaviorTracker, BehaviorAnalyzer,
+                            UsagePattern, GuidanceOptimizer,
+                            AnalyticsReport, EventType, SessionState,
+                            track_event, track_command, track_feature,
+                            track_error, start_session, end_session,
+                            get_analytics_report, get_analytics_summary,
+                            optimize_guidance, get_behavior_patterns,
+                            get_behavior_anomalies, clear_analytics,
+                            get_event_count, get_session_count)
+
+    if args.clear:
+        clear_analytics()
+        print("已清空分析数据")
+        return 0
+
+    if args.track:
+        # 记录测试事件
+        print("记录测试事件...")
+        sid = start_session()
+        track_command("test_cmd", source="cli")
+        track_feature("analytics_test")
+        track_error("test_error")
+        end_session()
+        print(f"已记录测试事件，会话ID: {sid}")
+        return 0
+
+    if args.summary:
+        summary = get_analytics_summary()
+        print(f"\nSEVA行为分析摘要:")
+        print("=" * 50)
+        for k, v in summary.items():
+            print(f"  {k}: {v}")
+        return 0
+
+    if args.patterns:
+        patterns = get_behavior_patterns()
+        if not patterns:
+            print("暂无识别到的使用模式")
+            return 0
+        print(f"\n使用模式 ({len(patterns)}个):")
+        print("=" * 50)
+        for p in patterns:
+            print(f"\n  [{p['type']}] {p['description']}")
+            print(f"    模式: {p['pattern']}")
+            print(f"    次数: {p['count']}")
+        return 0
+
+    if args.anomalies:
+        anomalies = get_behavior_anomalies()
+        if not anomalies:
+            print("未检测到异常行为")
+            return 0
+        print(f"\n异常行为 ({len(anomalies)}个):")
+        print("=" * 50)
+        for a in anomalies:
+            print(f"\n  [{a['severity']}] {a['type']}")
+            print(f"    {a['description']}")
+        return 0
+
+    if args.optimize:
+        opt = optimize_guidance()
+        recommendations = opt.get("recommendations", [])
+        if not recommendations:
+            print("暂无优化建议")
+            return 0
+        print(f"\n引导优化建议 ({len(recommendations)}条):")
+        print("=" * 60)
+        for r in recommendations:
+            print(f"\n  [{r['priority']}] {r['title']}")
+            print(f"    {r['description']}")
+        return 0
+
+    if args.stats:
+        print(f"\nSEVA分析统计:")
+        print("=" * 50)
+        print(f"  事件总数: {get_event_count()}")
+        print(f"  会话总数: {get_session_count()}")
+        return 0
+
+    # 默认显示完整报告
+    report = get_analytics_report()
+    print(report)
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -2431,6 +2518,25 @@ def build_parser():
     a11y_parser.add_argument("--test", action="store_true",
                              help="测试无障碍格式化")
     a11y_parser.set_defaults(func=cmd_accessibility)
+
+    # 阶段52: analytics命令 - 用户行为分析与引导优化
+    analytics_parser = subparsers.add_parser("analytics",
+                                             help="用户行为分析与引导优化")
+    analytics_parser.add_argument("--summary", action="store_true",
+                                  help="查看分析摘要")
+    analytics_parser.add_argument("--patterns", action="store_true",
+                                  help="查看使用模式")
+    analytics_parser.add_argument("--anomalies", action="store_true",
+                                  help="查看异常行为")
+    analytics_parser.add_argument("--optimize", action="store_true",
+                                  help="引导优化建议")
+    analytics_parser.add_argument("--stats", action="store_true",
+                                  help="查看统计信息")
+    analytics_parser.add_argument("--track", action="store_true",
+                                  help="记录测试事件")
+    analytics_parser.add_argument("--clear", action="store_true",
+                                  help="清空分析数据")
+    analytics_parser.set_defaults(func=cmd_analytics)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")
