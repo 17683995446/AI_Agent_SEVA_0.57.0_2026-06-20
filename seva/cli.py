@@ -2303,6 +2303,69 @@ def cmd_benchmark(args):
     return 0
 
 
+def cmd_llm(args):
+    """seva llm: LLM客户端与API管理（阶段58）"""
+    import os
+    from .llm import (LLMClient, Message, Role, ChatRequest, get_llm_client,
+                      get_llm_stats, reset_llm_client)
+
+    if args.reset:
+        reset_llm_client()
+        print("已重置LLM客户端")
+        return 0
+
+    if args.test:
+        # 测试连接
+        api_key = os.environ.get("SEVA_LLM_API_KEY", "")
+        if not api_key:
+            print("未设置API Key (环境变量 SEVA_LLM_API_KEY)")
+            return 1
+        print(f"使用API Key: {api_key[:8]}...{api_key[-4:]}")
+        print(f"基础URL: {os.environ.get('SEVA_LLM_BASE_URL', '默认')}")
+        print(f"模型: {os.environ.get('SEVA_LLM_MODEL', '默认')}")
+        print("测试LLM连接...")
+
+        try:
+            client = LLMClient(api_key=api_key)
+            response = client.chat([
+                Message.system("你是一个测试助手。"),
+                Message.user("请用一句话介绍自己。"),
+            ], max_tokens=100)
+            print(f"\n响应成功!")
+            print(f"  内容: {response.content}")
+            print(f"  Token使用: {response.usage.total_tokens}")
+            print(f"  结束原因: {response.finish_reason}")
+            return 0
+        except Exception as e:
+            print(f"测试失败: {e}")
+            return 1
+
+    if args.info:
+        client = get_llm_client()
+        print(f"\nLLM客户端配置:")
+        print("-" * 60)
+        print(f"  模型: {client.model}")
+        print(f"  基础URL: {client.base_url}")
+        print(f"  超时: {client.timeout}s")
+        print(f"  最大重试: {client.retry_config.max_retries}")
+        print(f"  API Key: {client.api_key[:8] + '...' if client.api_key else '未设置'}")
+        print(f"  启用缓存: {client.use_cache}")
+        return 0
+
+    # 默认显示统计
+    stats = get_llm_stats()
+    print("\nLLM客户端统计:")
+    print("-" * 60)
+    for k, v in stats.items():
+        if isinstance(v, dict):
+            print(f"  {k}:")
+            for kk, vv in v.items():
+                print(f"    {kk}: {vv}")
+        else:
+            print(f"  {k}: {v}")
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -3144,6 +3207,18 @@ def build_parser():
     bench_parser.add_argument("--reset", action="store_true",
                                help="重置基准测试状态")
     bench_parser.set_defaults(func=cmd_benchmark)
+
+    # llm命令（阶段58）
+    llm_parser = subparsers.add_parser("llm", help="LLM客户端与API管理")
+    llm_parser.add_argument("--stats", action="store_true",
+                             help="显示LLM客户端统计 (默认)")
+    llm_parser.add_argument("--info", action="store_true",
+                             help="显示配置信息")
+    llm_parser.add_argument("--reset", action="store_true",
+                             help="重置LLM客户端")
+    llm_parser.add_argument("--test", action="store_true",
+                             help="测试LLM连接 (需要API Key)")
+    llm_parser.set_defaults(func=cmd_llm)
 
     return parser
 

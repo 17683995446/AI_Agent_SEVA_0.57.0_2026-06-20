@@ -27,6 +27,7 @@
 阶段55: 多Agent协作与编排
 阶段56: 实时流处理与事件驱动
 阶段57: 性能基准与自动调优
+阶段58: LLM客户端与API对接
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -267,6 +268,13 @@ from .benchmark import (Benchmark, BenchmarkSuite, BenchmarkResult,
                         run_benchmarks, tune, ab_test,
                         get_benchmark_report, get_benchmark_status,
                         reset_benchmarks)
+from .llm import (Role, Message, TokenUsage, ChatRequest, ChatResponse,
+                  StreamChunk, LLMError, RateLimitError, QuotaExhaustedError,
+                  AuthenticationError, ContentFilterError, ModelOverloadedError,
+                  NetworkError, ContextLengthError, RetryConfig, RateLimiter,
+                  ResponseCache, LLMClient, LLMSession,
+                  get_llm_client, set_llm_client, chat, stream_chat,
+                  get_llm_stats, reset_llm_client)
 
 __all__ = [
     "Config",
@@ -622,6 +630,31 @@ __all__ = [
     "get_benchmark_report",
     "get_benchmark_status",
     "reset_benchmarks",
+    "Role",
+    "Message",
+    "TokenUsage",
+    "ChatRequest",
+    "ChatResponse",
+    "StreamChunk",
+    "LLMError",
+    "RateLimitError",
+    "QuotaExhaustedError",
+    "AuthenticationError",
+    "ContentFilterError",
+    "ModelOverloadedError",
+    "NetworkError",
+    "ContextLengthError",
+    "RetryConfig",
+    "RateLimiter",
+    "ResponseCache",
+    "LLMClient",
+    "LLMSession",
+    "get_llm_client",
+    "set_llm_client",
+    "chat",
+    "stream_chat",
+    "get_llm_stats",
+    "reset_llm_client",
 ]
 
-__version__ = "0.57.0"
+__version__ = "0.58.0"
