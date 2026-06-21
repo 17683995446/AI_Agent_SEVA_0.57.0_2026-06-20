@@ -31,6 +31,7 @@
 阶段59: Prompt工程与模板管理
 阶段60: 16阶段循环LLM化
 阶段61: 记忆与上下文管理
+阶段62: 工具调用与Function Calling
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -134,6 +135,16 @@
     memory = get_memory_manager()                               # 记忆管理
     memory.add("重要信息:...", MemoryType.SEMANTIC, importance=0.9)
     context = memory.build_context("查询")                      # 构造LLM上下文
+
+    from seva import (get_tool_registry, get_tool_executor,
+                      ToolCallRequest, ToolCallLoop)
+    registry = get_tool_registry()                              # 工具注册表
+    executor = get_tool_executor()                              # 工具执行器
+    req = ToolCallRequest(tool_name="calculator",
+                         arguments={"expression": "2+3*4"})
+    result = executor.execute(req)                              # 执行工具调用
+    loop = ToolCallLoop(registry, executor)                     # LLM驱动工具循环
+    out = loop.run("计算 sqrt(16) 的值")                        # 自然语言调用
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -309,6 +320,10 @@ from .memory_llm import (MemoryType, MemoryEntry, TokenBudget,
                         ContextCompressor, MemoryManager,
                         get_memory_manager, set_memory_manager,
                         reset_memory_manager)
+from .tools import (ParameterType, ToolParameter, ToolDefinition,
+                    ToolCallRequest, ToolCallStatus, ToolCallResult,
+                    ToolRegistry, ToolExecutor, ToolCallLoop,
+                    get_tool_registry, get_tool_executor, reset_tools)
 
 __all__ = [
     "Config",
@@ -723,6 +738,18 @@ __all__ = [
     "get_memory_manager",
     "set_memory_manager",
     "reset_memory_manager",
+    "ParameterType",
+    "ToolParameter",
+    "ToolDefinition",
+    "ToolCallRequest",
+    "ToolCallStatus",
+    "ToolCallResult",
+    "ToolRegistry",
+    "ToolExecutor",
+    "ToolCallLoop",
+    "get_tool_registry",
+    "get_tool_executor",
+    "reset_tools",
 ]
 
-__version__ = "0.61.0"
+__version__ = "0.62.0"

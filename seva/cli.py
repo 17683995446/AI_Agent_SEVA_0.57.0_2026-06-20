@@ -2439,6 +2439,142 @@ def cmd_memory(args):
     return 0
 
 
+def cmd_tools(args):
+    """seva tools: 工具调用与Function Calling管理（阶段62）"""
+    import json
+    from .tools import (get_tool_registry, get_tool_executor, reset_tools,
+                        ToolCallRequest, ToolCallLoop, ToolCallStatus)
+
+    if args.tools_reset:
+        reset_tools()
+        print("已重置全局工具注册表和执行器")
+        return 0
+
+    registry = get_tool_registry()
+
+    # 列出所有工具
+    if args.list:
+        tools = registry.list_all()
+        category = args.category
+        if category:
+            tools = [t for t in tools if t.category == category]
+        print(f"\n已注册工具 ({len(tools)}个):")
+        print("-" * 60)
+        for t in tools:
+            status = "启用" if t.enabled else "禁用"
+            danger = " [危险]" if t.dangerous else ""
+            print(f"  - {t.name} ({t.category}) [{status}]{danger}")
+            print(f"    描述: {t.description}")
+            if t.parameters:
+                params = ", ".join(
+                    f"{p.name}{'?' if not p.required else ''}"
+                    for p in t.parameters
+                )
+                print(f"    参数: {params}")
+        return 0
+
+    # 显示工具详情
+    if args.show:
+        tool = registry.get(args.show)
+        if tool is None:
+            print(f"工具不存在: {args.show}")
+            return 1
+        print(f"\n工具详情:")
+        print("-" * 60)
+        print(f"  名称: {tool.name}")
+        print(f"  描述: {tool.description}")
+        print(f"  类别: {tool.category}")
+        print(f"  超时: {tool.timeout}s")
+        print(f"  危险: {'是' if tool.dangerous else '否'}")
+        print(f"  启用: {'是' if tool.enabled else '否'}")
+        print(f"  参数 ({len(tool.parameters)}个):")
+        for p in tool.parameters:
+            req = "必填" if p.required else "可选"
+            print(f"    - {p.name} ({p.param_type.value}, {req})")
+            if p.description:
+                print(f"      描述: {p.description}")
+            if p.default is not None:
+                print(f"      默认: {p.default}")
+            if p.enum is not None:
+                print(f"      枚举: {p.enum}")
+        # OpenAI schema
+        print(f"\n  OpenAI Schema:")
+        print(json.dumps(tool.to_openai_schema(), ensure_ascii=False, indent=2))
+        return 0
+
+    # 执行工具
+    if args.call:
+        tool = registry.get(args.call)
+        if tool is None:
+            print(f"工具不存在: {args.call}")
+            return 1
+        # 解析参数
+        arguments = {}
+        if args.arguments:
+            try:
+                arguments = json.loads(args.arguments)
+            except json.JSONDecodeError as e:
+                print(f"参数JSON解析失败: {e}")
+                return 1
+        executor = get_tool_executor()
+        req = ToolCallRequest(tool_name=args.call, arguments=arguments)
+        result = executor.execute(req)
+        print(f"\n工具调用结果:")
+        print("-" * 60)
+        print(f"  工具: {result.tool_name}")
+        print(f"  状态: {result.status.value}")
+        print(f"  延迟: {result.latency_ms:.1f}ms")
+        if result.success:
+            print(f"  结果:")
+            print(json.dumps(result.result, ensure_ascii=False, indent=2))
+        else:
+            print(f"  错误: {result.error}")
+        return 0 if result.success else 1
+
+    # LLM驱动的工具调用循环
+    if args.ask:
+        loop = ToolCallLoop(registry, get_tool_executor(),
+                           max_iterations=args.max_iterations or 5)
+        result = loop.run(args.ask, use_cache=not args.no_cache)
+        print(f"\n=== 工具调用循环结果 ===")
+        print(f"轮次: {result['iterations']}")
+        print(f"Tokens: {result['total_tokens']}")
+        if result["tool_calls"]:
+            print(f"\n工具调用:")
+            for tc in result["tool_calls"]:
+                print(f"  - {tc['tool_name']}: {tc['status']}")
+        print(f"\n回答:")
+        print("-" * 60)
+        print(result["answer"])
+        return 0
+
+    # 显示统计
+    if args.stats:
+        executor = get_tool_executor()
+        stats = executor.get_stats()
+        print(f"\n=== 工具执行统计 ===")
+        print("-" * 60)
+        for k, v in stats.items():
+            if isinstance(v, float):
+                print(f"  {k}: {v:.2f}")
+            else:
+                print(f"  {k}: {v}")
+        return 0
+
+    # 默认显示概览
+    tools = registry.list_all()
+    categories = {}
+    for t in tools:
+        categories[t.category] = categories.get(t.category, 0) + 1
+    print(f"\n=== 工具系统概览 ===")
+    print(f"总工具数: {len(tools)}")
+    print(f"启用工具: {len([t for t in tools if t.enabled])}")
+    print(f"\n按类别:")
+    for cat, count in sorted(categories.items()):
+        print(f"  {cat}: {count}")
+    return 0
+
+
 def cmd_llm_loop(args):
     """seva llm-loop: 16阶段循环LLM增强管理（阶段60）"""
     from .llm_loop import get_llm_loop, reset_llm_loop
@@ -3553,6 +3689,30 @@ def build_parser():
     memory_parser.add_argument("--memory-reset", action="store_true",
                                 help="重置全局记忆管理器")
     memory_parser.set_defaults(func=cmd_memory)
+
+    # tools 命令 (阶段62)
+    tools_parser = subparsers.add_parser("tools", help="工具调用与Function Calling管理")
+    tools_parser.add_argument("--list", action="store_true",
+                               help="列出所有工具")
+    tools_parser.add_argument("--category", type=str, default=None,
+                               help="按类别筛选")
+    tools_parser.add_argument("--show", type=str, default=None,
+                               help="显示工具详情")
+    tools_parser.add_argument("--call", type=str, default=None,
+                               help="执行工具 (传入工具名)")
+    tools_parser.add_argument("--arguments", type=str, default=None,
+                               help="工具参数 (JSON格式)")
+    tools_parser.add_argument("--ask", type=str, default=None,
+                               help="LLM驱动的工具调用 (自然语言提问)")
+    tools_parser.add_argument("--max-iterations", type=int, default=None,
+                               help="最大迭代轮次")
+    tools_parser.add_argument("--no-cache", action="store_true",
+                               help="禁用LLM缓存")
+    tools_parser.add_argument("--stats", action="store_true",
+                               help="显示工具执行统计")
+    tools_parser.add_argument("--tools-reset", action="store_true",
+                               help="重置全局工具注册表和执行器")
+    tools_parser.set_defaults(func=cmd_tools)
 
     return parser
 
