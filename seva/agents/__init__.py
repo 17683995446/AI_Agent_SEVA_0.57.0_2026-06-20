@@ -29,6 +29,12 @@ from .conversation import (
     ConversationConfig, ConversationAgent,
     get_conversation_agent, reset_conversation_agent,
 )
+from .code import (
+    CodeLanguage, ExecutionStatus, CodeBlock, ExecutionResult, ReviewResult,
+    CodeSandbox, CodeGenerator, CodeReviewer, CodeDebugger,
+    CodeAgentConfig, CodeAgent,
+    get_code_agent, reset_code_agent,
+)
 
 __all__ = [
     # 阶段64
@@ -51,5 +57,19 @@ __all__ = [
     "ConversationAgent",
     "get_conversation_agent",
     "reset_conversation_agent",
+    # 阶段66
+    "CodeLanguage",
+    "ExecutionStatus",
+    "CodeBlock",
+    "ExecutionResult",
+    "ReviewResult",
+    "CodeSandbox",
+    "CodeGenerator",
+    "CodeReviewer",
+    "CodeDebugger",
+    "CodeAgentConfig",
+    "CodeAgent",
+    "get_code_agent",
+    "reset_code_agent",
 ]
 

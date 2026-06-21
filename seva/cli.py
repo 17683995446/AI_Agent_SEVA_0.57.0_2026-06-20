@@ -2911,6 +2911,80 @@ def cmd_chat(args):
     return 0
 
 
+def cmd_code(args):
+    """seva code: 编程Agent（阶段66）"""
+    from .agents import CodeAgent, CodeAgentConfig, CodeLanguage
+    from .agents import get_code_agent, reset_code_agent
+
+    if args.code_reset:
+        reset_code_agent()
+        print("已重置全局编程Agent")
+        return 0
+
+    agent = get_code_agent()
+
+    # 直接执行代码
+    if args.execute:
+        result = agent.execute_code(args.execute,
+                                    language=CodeLanguage(args.language or "python"))
+        if result.success:
+            print(f"\n=== 执行成功 ===")
+            if result.stdout:
+                print(result.stdout)
+        else:
+            print(f"\n=== 执行失败 ===")
+            if result.stderr:
+                print(f"stderr: {result.stderr}")
+            if result.error:
+                print(f"error: {result.error}")
+        return 0 if result.success else 1
+
+    # 生成并执行代码
+    if args.generate:
+        agent.start()
+        result = agent.run(args.generate,
+                          language=CodeLanguage(args.language or "python"),
+                          execute=not args.no_execute)
+        if result.success:
+            print(f"\n=== 编程Agent结果 ===")
+            print(result.output)
+            print(f"\n[延迟: {result.latency_ms:.0f}ms]")
+            return 0
+        else:
+            print(f"失败: {result.error}")
+            return 1
+
+    # 显示统计
+    if args.stats:
+        stats = agent.get_stats()
+        print(f"\n=== 编程Agent统计 ===")
+        print("-" * 60)
+        for k, v in stats.items():
+            if isinstance(v, dict):
+                print(f"\n{k}:")
+                for sk, sv in v.items():
+                    print(f"  {sk}: {sv}")
+            elif isinstance(v, float):
+                print(f"  {k}: {v:.2f}")
+            else:
+                print(f"  {k}: {v}")
+        return 0
+
+    # 默认显示帮助
+    print("seva code - 编程Agent")
+    print()
+    print("用法:")
+    print("  seva code -g '写一个排序函数'           # 生成并执行代码")
+    print("  seva code -e 'print(\"hello\")'          # 直接执行代码")
+    print("  seva code --stats                       # 显示统计")
+    print("  seva code --code-reset                  # 重置Agent")
+    print()
+    print("选项:")
+    print("  --language LANG    编程语言 (python/javascript/shell)")
+    print("  --no-execute       仅生成不执行")
+    return 0
+
+
 def cmd_llm_loop(args):
     """seva llm-loop: 16阶段循环LLM增强管理（阶段60）"""
     from .llm_loop import get_llm_loop, reset_llm_loop
@@ -4114,6 +4188,22 @@ def build_parser():
     chat_parser.add_argument("--chat-reset", action="store_true",
                               help="重置全局对话Agent")
     chat_parser.set_defaults(func=cmd_chat)
+
+    # code 命令 (阶段66)
+    code_parser = subparsers.add_parser("code", help="编程Agent")
+    code_parser.add_argument("-g", "--generate", type=str, default=None,
+                              help="生成并执行代码 (传入需求)")
+    code_parser.add_argument("-e", "--execute", type=str, default=None,
+                              help="直接执行代码")
+    code_parser.add_argument("--language", type=str, default=None,
+                              help="编程语言 (python/javascript/shell)")
+    code_parser.add_argument("--no-execute", action="store_true",
+                              help="仅生成不执行")
+    code_parser.add_argument("--stats", action="store_true",
+                              help="显示统计")
+    code_parser.add_argument("--code-reset", action="store_true",
+                              help="重置全局编程Agent")
+    code_parser.set_defaults(func=cmd_code)
 
     return parser
 

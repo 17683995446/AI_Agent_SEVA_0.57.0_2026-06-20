@@ -35,6 +35,7 @@
 阶段63: 智能决策与自主规划
 阶段64: Agent基类与生命周期管理
 阶段65: 对话Agent
+阶段66: 编程Agent
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -175,6 +176,12 @@
     session = conv.new_session(user_id="user1")                 # 创建会话
     r1 = conv.chat("你好")                                      # 第一轮对话
     r2 = conv.chat("我刚才说了什么?")                           # 第二轮(有上下文)
+
+    from seva import CodeAgent, CodeAgentConfig, CodeLanguage
+    coder = CodeAgent(config=CodeAgentConfig())                 # 编程Agent
+    coder.start()                                               # 启动
+    result = coder.run("写一个函数计算阶乘")                     # 生成+执行+调试
+    print(result.output)                                        # 代码与执行结果
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -369,7 +376,11 @@ from .agents import (AgentState, AgentEventType, AgentEvent,
                      get_agent_runner, reset_agent_runner,
                      Session, SessionStatus, SessionManager,
                      ConversationConfig, ConversationAgent,
-                     get_conversation_agent, reset_conversation_agent)
+                     get_conversation_agent, reset_conversation_agent,
+                     CodeLanguage, ExecutionStatus, CodeBlock, ExecutionResult, ReviewResult,
+                     CodeSandbox, CodeGenerator, CodeReviewer, CodeDebugger,
+                     CodeAgentConfig, CodeAgent,
+                     get_code_agent, reset_code_agent)
 
 __all__ = [
     "Config",
@@ -841,6 +852,19 @@ __all__ = [
     "ConversationAgent",
     "get_conversation_agent",
     "reset_conversation_agent",
+    "CodeLanguage",
+    "ExecutionStatus",
+    "CodeBlock",
+    "ExecutionResult",
+    "ReviewResult",
+    "CodeSandbox",
+    "CodeGenerator",
+    "CodeReviewer",
+    "CodeDebugger",
+    "CodeAgentConfig",
+    "CodeAgent",
+    "get_code_agent",
+    "reset_code_agent",
 ]
 
-__version__ = "0.65.0"
+__version__ = "0.66.0"
