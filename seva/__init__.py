@@ -20,6 +20,7 @@
 阶段48: 友好错误处理与恢复
 阶段49: 进度反馈与状态指示
 阶段50: 智能建议与推荐系统
+阶段51: 可访问性与无障碍支持
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -94,6 +95,12 @@
     for s in suggestions:
         print(s.format())
     print(get_suggestions(agent))                      # 建议报告
+
+    from seva import (AccessibilityConfig, format_accessible,
+                      enable_high_contrast, enable_screen_reader)
+    config = AccessibilityConfig(high_contrast=True)  # 高对比度
+    text = format_accessible("错误: 文件未找到", config)  # 无障碍格式
+    enable_screen_reader(True)                         # 启用屏幕阅读器
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -192,6 +199,20 @@ from .suggestions import (Suggestion, SuggestionType, SuggestionPriority,
                           record_command, record_feature, record_error,
                           record_session, reset_user_profile,
                           get_skill_level, analyze_context)
+from .accessibility import (AccessibilityConfig, AccessibilityLevel,
+                            ColorBlindnessType, ColorBlindnessSupport,
+                            ScreenReaderSupport, HighContrastMode,
+                            KeyboardNavigation, AccessibleFormatter,
+                            AccessibilityManager,
+                            format_accessible, get_accessibility_config,
+                            set_accessibility_config,
+                            update_accessibility_config,
+                            reset_accessibility_config,
+                            get_accessibility_report,
+                            enable_high_contrast, enable_large_text,
+                            enable_screen_reader, enable_reduce_motion,
+                            set_color_blindness, get_color_blind_palette,
+                            get_keybindings, format_keybindings_help)
 
 __all__ = [
     "Config",
@@ -405,6 +426,29 @@ __all__ = [
     "reset_user_profile",
     "get_skill_level",
     "analyze_context",
+    "AccessibilityConfig",
+    "AccessibilityLevel",
+    "ColorBlindnessType",
+    "ColorBlindnessSupport",
+    "ScreenReaderSupport",
+    "HighContrastMode",
+    "KeyboardNavigation",
+    "AccessibleFormatter",
+    "AccessibilityManager",
+    "format_accessible",
+    "get_accessibility_config",
+    "set_accessibility_config",
+    "update_accessibility_config",
+    "reset_accessibility_config",
+    "get_accessibility_report",
+    "enable_high_contrast",
+    "enable_large_text",
+    "enable_screen_reader",
+    "enable_reduce_motion",
+    "set_color_blindness",
+    "get_color_blind_palette",
+    "get_keybindings",
+    "format_keybindings_help",
 ]
 
-__version__ = "0.50.0"
+__version__ = "0.51.0"

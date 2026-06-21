@@ -1659,6 +1659,108 @@ def cmd_suggest(args):
     return 0
 
 
+def cmd_accessibility(args):
+    """seva accessibility: 可访问性与无障碍支持（阶段51）"""
+    from .accessibility import (AccessibilityConfig, AccessibilityManager,
+                                ColorBlindnessType, ColorBlindnessSupport,
+                                ScreenReaderSupport, HighContrastMode,
+                                KeyboardNavigation, AccessibleFormatter,
+                                format_accessible, get_accessibility_config,
+                                set_accessibility_config,
+                                update_accessibility_config,
+                                reset_accessibility_config,
+                                get_accessibility_report,
+                                enable_high_contrast, enable_large_text,
+                                enable_screen_reader, enable_reduce_motion,
+                                set_color_blindness,
+                                get_color_blind_palette,
+                                get_keybindings, format_keybindings_help)
+
+    if args.report:
+        print(get_accessibility_report())
+        return 0
+
+    if args.reset:
+        reset_accessibility_config()
+        print("已重置可访问性配置")
+        return 0
+
+    if args.high_contrast is not None:
+        enabled = args.high_contrast == "on"
+        enable_high_contrast(enabled)
+        state = "启用" if enabled else "禁用"
+        print(f"已{state}高对比度模式")
+        return 0
+
+    if args.large_text is not None:
+        enabled = args.large_text == "on"
+        scale = args.font_scale or 1.5
+        enable_large_text(enabled, scale)
+        state = "启用" if enabled else "禁用"
+        print(f"已{state}大字体模式 (缩放: {scale}x)")
+        return 0
+
+    if args.screen_reader is not None:
+        enabled = args.screen_reader == "on"
+        enable_screen_reader(enabled)
+        state = "启用" if enabled else "禁用"
+        print(f"已{state}屏幕阅读器支持")
+        return 0
+
+    if args.reduce_motion is not None:
+        enabled = args.reduce_motion == "on"
+        enable_reduce_motion(enabled)
+        state = "启用" if enabled else "禁用"
+        print(f"已{state}减少动画模式")
+        return 0
+
+    if args.color_blindness:
+        if args.color_blindness == "none":
+            set_color_blindness(ColorBlindnessType.NONE)
+            print("已清除色盲模式")
+        else:
+            set_color_blindness(args.color_blindness)
+            print(f"已设置色盲类型: {args.color_blindness}")
+            palette = get_color_blind_palette(args.color_blindness)
+            if palette:
+                print("颜色替代方案:")
+                for semantic, color in palette.items():
+                    print(f"  {semantic}: {color}")
+        return 0
+
+    if args.keybindings:
+        print(format_keybindings_help())
+        return 0
+
+    if args.test:
+        # 测试无障碍格式化
+        print("测试无障碍格式化...")
+        config = get_accessibility_config()
+        formatter = AccessibleFormatter(config)
+        print(f"\n当前配置: {config}")
+        print(f"\n格式化示例:")
+        print(f"  状态: {formatter.format_status('running', '任务1', '处理中')}")
+        print(f"  进度: {formatter.format_progress(50, 100, '下载')}")
+        print(f"  错误: {formatter.format_error('文件未找到', '路径错误', '检查路径')}")
+        print(f"  成功: {formatter.format_success('操作完成')}")
+        print(f"  警告: {formatter.format_warning('资源不足')}")
+        return 0
+
+    # 默认显示报告
+    print(get_accessibility_report())
+    print("\n可用选项:")
+    print("  --report               查看报告")
+    print("  --high-contrast on/off 启用/禁用高对比度")
+    print("  --large-text on/off    启用/禁用大字体")
+    print("  --screen-reader on/off 启用/禁用屏幕阅读器")
+    print("  --reduce-motion on/off 启用/禁用减少动画")
+    print("  --color-blindness TYPE 设置色盲类型")
+    print("  --keybindings          查看键盘快捷键")
+    print("  --test                 测试格式化")
+    print("  --reset                重置配置")
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -2291,6 +2393,44 @@ def build_parser():
     suggest_parser.add_argument("--steps", type=int, default=0,
                                 help="运行步数 (默认: 0)")
     suggest_parser.set_defaults(func=cmd_suggest)
+
+    # 阶段51: accessibility命令 - 可访问性与无障碍支持
+    a11y_parser = subparsers.add_parser("accessibility",
+                                        help="可访问性与无障碍支持")
+    a11y_parser.add_argument("--report", action="store_true",
+                             help="查看可访问性报告")
+    a11y_parser.add_argument("--reset", action="store_true",
+                             help="重置可访问性配置")
+    a11y_parser.add_argument("--high-contrast", type=str, default=None,
+                             dest="high_contrast",
+                             choices=["on", "off"],
+                             help="启用/禁用高对比度模式")
+    a11y_parser.add_argument("--large-text", type=str, default=None,
+                             dest="large_text",
+                             choices=["on", "off"],
+                             help="启用/禁用大字体模式")
+    a11y_parser.add_argument("--font-scale", type=float, default=None,
+                             dest="font_scale",
+                             help="字体缩放 (默认: 1.5)")
+    a11y_parser.add_argument("--screen-reader", type=str, default=None,
+                             dest="screen_reader",
+                             choices=["on", "off"],
+                             help="启用/禁用屏幕阅读器支持")
+    a11y_parser.add_argument("--reduce-motion", type=str, default=None,
+                             dest="reduce_motion",
+                             choices=["on", "off"],
+                             help="启用/禁用减少动画")
+    a11y_parser.add_argument("--color-blindness", type=str, default=None,
+                             dest="color_blindness",
+                             choices=["none", "protanopia",
+                                      "deuteranopia", "tritanopia",
+                                      "achromatopsia"],
+                             help="设置色盲类型")
+    a11y_parser.add_argument("--keybindings", action="store_true",
+                             help="查看键盘快捷键")
+    a11y_parser.add_argument("--test", action="store_true",
+                             help="测试无障碍格式化")
+    a11y_parser.set_defaults(func=cmd_accessibility)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")
