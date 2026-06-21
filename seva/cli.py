@@ -2057,6 +2057,79 @@ def cmd_plugin(args):
     return 0
 
 
+def cmd_orchestrate(args):
+    """seva orchestrate: 多Agent协作与编排（阶段55）"""
+    from .orchestration import (Orchestrator, Workflow, TaskNode, ExecutionMode,
+                                WorkflowStatus, TaskStatus, create_workflow,
+                                run_workflow, register_workflow,
+                                run_registered_workflow, list_workflows,
+                                get_workflow_result, get_orchestration_report,
+                                get_orchestration_status, reset_orchestration)
+
+    if args.reset:
+        reset_orchestration()
+        print("已重置所有编排状态")
+        return 0
+
+    if args.demo:
+        print("演示工作流编排...")
+        Orchestrator.reset_instance()
+
+        # 创建数据处理工作流
+        wf = create_workflow("demo_pipeline", mode=ExecutionMode.PARALLEL)
+
+        def fetch_data(context=None):
+            return [1, 2, 3, 4, 5]
+
+        def process_data(context=None):
+            return [x * 2 for x in context.get("fetch", [])]
+
+        def save_data(context=None):
+            data = context.get("process", [])
+            return f"保存了{len(data)}条数据"
+
+        wf.add_task(TaskNode("fetch", fetch_data))
+        wf.add_task(TaskNode("process", process_data), depends_on=["fetch"])
+        wf.add_task(TaskNode("save", save_data), depends_on=["process"])
+
+        result = run_workflow(wf)
+        print(f"\n{result.summary()}")
+        for name, task in result.tasks.items():
+            print(f"  {name}: {task.status.value} -> {task.result}")
+        return 0
+
+    if args.list:
+        workflows = list_workflows()
+        if not workflows:
+            print("无注册工作流")
+            return 0
+        print("\n已注册工作流:")
+        print("-" * 60)
+        for name in workflows:
+            wf = Orchestrator().get_workflow(name)
+            info = wf.get_info()
+            print(f"  [{info['status'].upper():9s}] {name} "
+                  f"({info['task_count']}个任务, {info['mode']})")
+        return 0
+
+    if args.run:
+        result = run_registered_workflow(args.run)
+        if result is None:
+            print(f"工作流 '{args.run}' 不存在")
+            return 1
+        print(f"\n{result.summary()}")
+        for name, task in result.tasks.items():
+            status = task.status.value
+            print(f"  [{status:8s}] {name}")
+            if task.error:
+                print(f"            错误: {task.error}")
+        return 0 if result.is_success else 1
+
+    # 默认显示完整报告
+    print(get_orchestration_report())
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -2848,6 +2921,21 @@ def build_parser():
     plugin_parser.add_argument("--reset", action="store_true",
                                 help="重置所有插件状态")
     plugin_parser.set_defaults(func=cmd_plugin)
+
+    # orchestrate命令（阶段55）
+    orch_parser = subparsers.add_parser("orchestrate",
+                                         help="多Agent协作与编排")
+    orch_parser.add_argument("--report", action="store_true",
+                              help="显示编排报告 (默认)")
+    orch_parser.add_argument("--list", action="store_true",
+                              help="列出所有工作流")
+    orch_parser.add_argument("--run", type=str, default=None,
+                              help="运行指定工作流")
+    orch_parser.add_argument("--demo", action="store_true",
+                              help="演示工作流编排")
+    orch_parser.add_argument("--reset", action="store_true",
+                              help="重置所有编排状态")
+    orch_parser.set_defaults(func=cmd_orchestrate)
 
     return parser
 
