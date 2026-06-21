@@ -28,6 +28,7 @@
 阶段56: 实时流处理与事件驱动
 阶段57: 性能基准与自动调优
 阶段58: LLM客户端与API对接
+阶段59: Prompt工程与模板管理
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -113,6 +114,14 @@
     start_session()                                    # 开始会话
     track_event("command", name="run", properties={"steps": 100})
     print(get_analytics_report())                      # 行为分析报告
+
+    from seva import (chat, render_prompt, register_prompt, get_prompt,
+                      list_prompts, PromptTemplate, PromptSection, FewShotExample)
+    response = chat([{"role": "user", "content": "你好"}])    # LLM对话
+    template = PromptTemplate(name="my_task",
+        sections=[PromptSection.task("处理{{input}}")])
+    register_prompt(template)                                # 注册模板
+    rendered = render_prompt("my_task", inputs={"input": "数据"})  # 渲染Prompt
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -275,6 +284,12 @@ from .llm import (Role, Message, TokenUsage, ChatRequest, ChatResponse,
                   ResponseCache, LLMClient, LLMSession,
                   get_llm_client, set_llm_client, chat, stream_chat,
                   get_llm_stats, reset_llm_client)
+from .prompts import (SectionType, PromptVariable, FewShotExample, PromptSection,
+                      PromptFormat, PromptTemplate, RenderedPrompt,
+                      PromptFormatter, PromptChain, PromptRegistry,
+                      get_prompt_registry, register_prompt, get_prompt,
+                      list_prompts, unregister_prompt, render_prompt,
+                      delete_prompt, reset_prompts)
 
 __all__ = [
     "Config",
@@ -655,6 +670,24 @@ __all__ = [
     "stream_chat",
     "get_llm_stats",
     "reset_llm_client",
+    "SectionType",
+    "PromptVariable",
+    "FewShotExample",
+    "PromptSection",
+    "PromptFormat",
+    "PromptTemplate",
+    "RenderedPrompt",
+    "PromptFormatter",
+    "PromptChain",
+    "PromptRegistry",
+    "get_prompt_registry",
+    "register_prompt",
+    "get_prompt",
+    "list_prompts",
+    "unregister_prompt",
+    "render_prompt",
+    "delete_prompt",
+    "reset_prompts",
 ]
 
-__version__ = "0.58.0"
+__version__ = "0.59.0"

@@ -2366,6 +2366,136 @@ def cmd_llm(args):
     return 0
 
 
+def cmd_prompt(args):
+    """seva prompt: Prompt工程与模板管理（阶段59）"""
+    import json
+    from .prompts import (PromptTemplate, PromptSection, PromptVariable,
+                          FewShotExample, list_prompts, get_prompt,
+                          register_prompt, unregister_prompt, render_prompt,
+                          delete_prompt, reset_prompts)
+
+    # 重置
+    if args.reset_prompts:
+        reset_prompts()
+        print("已重置所有Prompt模板")
+        return 0
+
+    # 注册模板
+    if args.register:
+        # 创建示例模板
+        template = PromptTemplate(
+            name=args.register,
+            description="通过CLI注册的模板",
+            sections=[
+                PromptSection.role("你是一个助手"),
+                PromptSection.task("处理以下输入: {{input}}"),
+                PromptSection.output_format("JSON: {result: string}"),
+            ],
+            variables=[
+                PromptVariable(name="input", description="用户输入", required=True),
+            ],
+            author="cli",
+        )
+        if register_prompt(template, overwrite=True):
+            print(f"已注册模板: {args.register}")
+            return 0
+        print(f"注册失败: {args.register}")
+        return 1
+
+    # 注销模板
+    if args.unregister:
+        if unregister_prompt(args.unregister):
+            print(f"已注销模板: {args.unregister}")
+            return 0
+        print(f"模板不存在: {args.unregister}")
+        return 1
+
+    # 删除模板
+    if args.delete:
+        if delete_prompt(args.delete):
+            print(f"已删除模板: {args.delete}")
+            return 0
+        print(f"模板不存在: {args.delete}")
+        return 1
+
+    # 渲染模板
+    if args.render:
+        template = get_prompt(args.render)
+        if template is None:
+            print(f"模板不存在: {args.render}")
+            return 1
+        # 默认输入
+        inputs = {}
+        if args.input:
+            try:
+                inputs = json.loads(args.input)
+            except json.JSONDecodeError:
+                inputs = {"input": args.input}
+        if not inputs and template.variables:
+            for var in template.variables:
+                if var.default is not None:
+                    inputs[var.name] = var.default
+                else:
+                    inputs[var.name] = f"[示例:{var.name}]"
+        rendered = render_prompt(args.render, inputs=inputs)
+        if rendered is None:
+            print(f"渲染失败: {args.render}")
+            return 1
+        print(f"\n渲染结果 (template={args.render}, version={rendered.template_version}, hash={rendered.hash}):")
+        print("-" * 60)
+        for msg in rendered.to_messages():
+            print(f"[{msg['role']}]:")
+            print(msg['content'])
+            print()
+        return 0
+
+    # 显示模板详情
+    if args.show:
+        template = get_prompt(args.show)
+        if template is None:
+            print(f"模板不存在: {args.show}")
+            return 1
+        print(f"\nPrompt模板详情:")
+        print("-" * 60)
+        print(f"  名称: {template.name}")
+        print(f"  版本: {template.version}")
+        print(f"  描述: {template.description}")
+        print(f"  作者: {template.author}")
+        print(f"  标签: {', '.join(template.tags) if template.tags else '(无)'}")
+        print(f"  输出格式: {template.output_format.value}")
+        print(f"  模型: {template.model or '(默认)'}")
+        print(f"  温度: {template.temperature}")
+        print(f"  最大Tokens: {template.max_tokens}")
+        print(f"  段数: {len(template.sections)}")
+        for i, section in enumerate(template.sections, 1):
+            print(f"    [{i}] {section.section_type.value}: {section.content[:50]}..."
+                  f"{' (含' + str(len(section.section_examples)) + '示例)' if section.section_examples else ''}")
+        if template.variables:
+            print(f"  变量: {len(template.variables)}")
+            for var in template.variables:
+                req = "必填" if var.required else "可选"
+                default = f", 默认={var.default!r}" if var.default is not None else ""
+                print(f"    - {var.name} ({req}, 类型={var.var_type}{default}): {var.description}")
+        return 0
+
+    # 默认列出所有模板
+    names = list_prompts()
+    print(f"\nPrompt模板列表 (共 {len(names)} 个):")
+    print("-" * 60)
+    if not names:
+        print("  (无模板)")
+        print("\n使用 --register <name> 注册新模板")
+        print("使用 --render <name> 渲染模板")
+        print("使用 --show <name> 查看详情")
+    else:
+        for name in names:
+            template = get_prompt(name)
+            if template:
+                print(f"  - {name} (v{template.version}, {len(template.sections)}段, "
+                      f"{len(template.variables)}变量)")
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -3211,14 +3341,34 @@ def build_parser():
     # llm命令（阶段58）
     llm_parser = subparsers.add_parser("llm", help="LLM客户端与API管理")
     llm_parser.add_argument("--stats", action="store_true",
-                             help="显示LLM客户端统计 (默认)")
+                            help="显示LLM客户端统计 (默认)")
     llm_parser.add_argument("--info", action="store_true",
-                             help="显示配置信息")
+                            help="显示配置信息")
     llm_parser.add_argument("--reset", action="store_true",
-                             help="重置LLM客户端")
+                            help="重置LLM客户端")
     llm_parser.add_argument("--test", action="store_true",
-                             help="测试LLM连接 (需要API Key)")
+                            help="测试LLM连接 (需要API Key)")
     llm_parser.set_defaults(func=cmd_llm)
+
+    # prompt命令（阶段59）
+    prompt_parser = subparsers.add_parser("prompt", help="Prompt工程与模板管理")
+    prompt_parser.add_argument("--list", action="store_true",
+                               help="列出所有模板 (默认)")
+    prompt_parser.add_argument("--show", type=str, default=None,
+                               help="显示模板详情")
+    prompt_parser.add_argument("--register", type=str, default=None,
+                               help="注册新模板 (传入名称)")
+    prompt_parser.add_argument("--unregister", type=str, default=None,
+                               help="注销模板")
+    prompt_parser.add_argument("--delete", type=str, default=None,
+                               help="删除模板 (同unregister)")
+    prompt_parser.add_argument("--render", type=str, default=None,
+                               help="渲染模板 (传入名称)")
+    prompt_parser.add_argument("--input", type=str, default=None,
+                               help="渲染输入 (JSON字符串或简单字符串)")
+    prompt_parser.add_argument("--reset-prompts", action="store_true",
+                               help="重置所有模板")
+    prompt_parser.set_defaults(func=cmd_prompt)
 
     return parser
 
