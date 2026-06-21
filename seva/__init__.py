@@ -33,6 +33,7 @@
 阶段61: 记忆与上下文管理
 阶段62: 工具调用与Function Calling
 阶段63: 智能决策与自主规划
+阶段64: Agent基类与生命周期管理
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -151,6 +152,21 @@
     agent = get_autonomous_agent()                              # 自主Agent
     result = agent.run(Goal(description="分析数据并生成报告"))  # 自主完成任务
     print(result.final_output)                                  # 最终输出
+
+    from seva import BaseAgent, AgentConfig, get_agent_runner
+    class MyAgent(BaseAgent):                                   # 自定义Agent
+        def _run_impl(self, input, **kwargs):
+            from seva.agents import AgentRunResult
+            return AgentRunResult(
+                agent_id=self.agent_id,
+                session_id=self.context.session_id,
+                success=True, output=f"处理: {input}",
+            )
+    agent = MyAgent(config=AgentConfig(name="my"))              # 创建Agent
+    runner = get_agent_runner()                                 # 全局运行器
+    runner.register(agent)                                      # 注册
+    agent.start()                                               # 启动
+    result = agent.run("hello")                                 # 运行
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -339,6 +355,10 @@ from .planner import (Goal, Task, TaskStatus, Plan, PlanStatus, PlanStrategy,
                       get_decision_maker, get_autonomous_agent,
                       reset_planner, reset_reflector,
                       reset_decision_maker, reset_autonomous_agent)
+from .agents import (AgentState, AgentEventType, AgentEvent,
+                     AgentConfig, AgentStats, AgentContext, AgentRunResult,
+                     BaseAgent, AgentRunner,
+                     get_agent_runner, reset_agent_runner)
 
 __all__ = [
     "Config",
@@ -792,6 +812,17 @@ __all__ = [
     "reset_reflector",
     "reset_decision_maker",
     "reset_autonomous_agent",
+    "AgentState",
+    "AgentEventType",
+    "AgentEvent",
+    "AgentConfig",
+    "AgentStats",
+    "AgentContext",
+    "AgentRunResult",
+    "BaseAgent",
+    "AgentRunner",
+    "get_agent_runner",
+    "reset_agent_runner",
 ]
 
-__version__ = "0.63.0"
+__version__ = "0.64.0"

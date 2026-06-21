@@ -2698,6 +2698,104 @@ def cmd_planner(args):
     return 0
 
 
+def cmd_agent(args):
+    """seva agent: Agent生命周期管理（阶段64）"""
+    import json
+    from .agents import (BaseAgent, AgentConfig, AgentState, AgentEventType,
+                         get_agent_runner, reset_agent_runner)
+
+    if args.agent_reset:
+        reset_agent_runner()
+        print("已重置全局Agent运行器")
+        return 0
+
+    runner = get_agent_runner()
+
+    # 列出所有Agent
+    if args.list:
+        agents = runner.list_all()
+        state_filter = args.state
+        if state_filter:
+            agents = [a for a in agents if a.state.value == state_filter]
+        print(f"\n=== Agent列表 ({len(agents)}个) ===")
+        print("-" * 60)
+        for a in agents:
+            print(f"  [{a.state.value:10s}] {a.agent_id} ({a.config.name})")
+            if a.config.description:
+                print(f"              {a.config.description}")
+        return 0
+
+    # 显示Agent详情
+    if args.show:
+        agent = runner.get(args.show)
+        if agent is None:
+            print(f"Agent不存在: {args.show}")
+            return 1
+        info = agent.get_info()
+        print(f"\n=== Agent详情 ===")
+        print("-" * 60)
+        print(f"  ID: {info['agent_id']}")
+        print(f"  名称: {info['name']}")
+        print(f"  描述: {info['description']}")
+        print(f"  版本: {info['version']}")
+        print(f"  状态: {info['state']}")
+        print(f"  会话: {info['session_id']}")
+        print(f"\n  统计:")
+        stats = info["stats"]
+        for k, v in stats.items():
+            if isinstance(v, float):
+                print(f"    {k}: {v:.2f}")
+            else:
+                print(f"    {k}: {v}")
+        return 0
+
+    # 显示事件
+    if args.events:
+        agent_id = args.events
+        events = runner.get_events(agent_id=agent_id, limit=args.limit or 50)
+        print(f"\n=== Agent事件 ({len(events)}条) ===")
+        print("-" * 60)
+        for e in events[-20:]:  # 最近20条
+            ts = time.strftime("%H:%M:%S", time.localtime(e.timestamp))
+            print(f"  [{ts}] {e.event_type.value}: {e.data}")
+        return 0
+
+    # 显示报告
+    if args.report:
+        report = runner.get_report()
+        print(f"\n=== Agent运行器报告 ===")
+        print("-" * 60)
+        print(f"  总Agent数: {report['total_agents']}")
+        print(f"  总事件数: {report['total_events']}")
+        print(f"\n  状态分布:")
+        for state, count in report["states"].items():
+            print(f"    {state}: {count}")
+        return 0
+
+    # 启动所有Agent
+    if args.start_all:
+        results = runner.start_all()
+        print(f"启动 {len(results)} 个Agent")
+        for aid, ok in results.items():
+            print(f"  {'✓' if ok else '✗'} {aid}")
+        return 0
+
+    # 停止所有Agent
+    if args.stop_all:
+        results = runner.stop_all()
+        print(f"停止 {len(results)} 个Agent")
+        for aid, ok in results.items():
+            print(f"  {'✓' if ok else '✗'} {aid}")
+        return 0
+
+    # 默认显示概览
+    report = runner.get_report()
+    print(f"\n=== Agent系统概览 ===")
+    print(f"  总Agent数: {report['total_agents']}")
+    print(f"  状态分布: {report['states']}")
+    return 0
+
+
 def cmd_llm_loop(args):
     """seva llm-loop: 16阶段循环LLM增强管理（阶段60）"""
     from .llm_loop import get_llm_loop, reset_llm_loop
@@ -3857,6 +3955,28 @@ def build_parser():
     planner_parser.add_argument("--planner-reset", action="store_true",
                                  help="重置全局规划器/反思器/决策器/Agent")
     planner_parser.set_defaults(func=cmd_planner)
+
+    # agent 命令 (阶段64)
+    agent_parser = subparsers.add_parser("agent", help="Agent生命周期管理")
+    agent_parser.add_argument("--list", action="store_true",
+                               help="列出所有Agent")
+    agent_parser.add_argument("--state", type=str, default=None,
+                               help="按状态筛选 (created/configured/running/paused/stopped/terminated/error)")
+    agent_parser.add_argument("--show", type=str, default=None,
+                               help="显示Agent详情")
+    agent_parser.add_argument("--events", type=str, default=None,
+                               help="显示Agent事件 (传入Agent ID)")
+    agent_parser.add_argument("--limit", type=int, default=None,
+                               help="事件数量限制")
+    agent_parser.add_argument("--report", action="store_true",
+                               help="显示运行器报告")
+    agent_parser.add_argument("--start-all", action="store_true",
+                               help="启动所有Agent")
+    agent_parser.add_argument("--stop-all", action="store_true",
+                               help="停止所有Agent")
+    agent_parser.add_argument("--agent-reset", action="store_true",
+                               help="重置全局Agent运行器")
+    agent_parser.set_defaults(func=cmd_agent)
 
     return parser
 
