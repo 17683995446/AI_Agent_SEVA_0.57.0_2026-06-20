@@ -32,6 +32,7 @@
 阶段60: 16阶段循环LLM化
 阶段61: 记忆与上下文管理
 阶段62: 工具调用与Function Calling
+阶段63: 智能决策与自主规划
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -145,6 +146,11 @@
     result = executor.execute(req)                              # 执行工具调用
     loop = ToolCallLoop(registry, executor)                     # LLM驱动工具循环
     out = loop.run("计算 sqrt(16) 的值")                        # 自然语言调用
+
+    from seva import get_autonomous_agent, Goal
+    agent = get_autonomous_agent()                              # 自主Agent
+    result = agent.run(Goal(description="分析数据并生成报告"))  # 自主完成任务
+    print(result.final_output)                                  # 最终输出
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -324,6 +330,15 @@ from .tools import (ParameterType, ToolParameter, ToolDefinition,
                     ToolCallRequest, ToolCallStatus, ToolCallResult,
                     ToolRegistry, ToolExecutor, ToolCallLoop,
                     get_tool_registry, get_tool_executor, reset_tools)
+from .planner import (Goal, Task, TaskStatus, Plan, PlanStatus, PlanStrategy,
+                      TaskResult, PlanResult, ReflectionResult, Issue,
+                      RiskLevel, ActionType, Action,
+                      Planner, PlanExecutor, Reflector, DecisionMaker,
+                      AutonomousAgent,
+                      get_planner, get_plan_executor, get_reflector,
+                      get_decision_maker, get_autonomous_agent,
+                      reset_planner, reset_reflector,
+                      reset_decision_maker, reset_autonomous_agent)
 
 __all__ = [
     "Config",
@@ -750,6 +765,33 @@ __all__ = [
     "get_tool_registry",
     "get_tool_executor",
     "reset_tools",
+    "Goal",
+    "Task",
+    "TaskStatus",
+    "Plan",
+    "PlanStatus",
+    "PlanStrategy",
+    "TaskResult",
+    "PlanResult",
+    "ReflectionResult",
+    "Issue",
+    "RiskLevel",
+    "ActionType",
+    "Action",
+    "Planner",
+    "PlanExecutor",
+    "Reflector",
+    "DecisionMaker",
+    "AutonomousAgent",
+    "get_planner",
+    "get_plan_executor",
+    "get_reflector",
+    "get_decision_maker",
+    "get_autonomous_agent",
+    "reset_planner",
+    "reset_reflector",
+    "reset_decision_maker",
+    "reset_autonomous_agent",
 ]
 
-__version__ = "0.62.0"
+__version__ = "0.63.0"

@@ -2444,7 +2444,6 @@ def cmd_tools(args):
     import json
     from .tools import (get_tool_registry, get_tool_executor, reset_tools,
                         ToolCallRequest, ToolCallLoop, ToolCallStatus)
-
     if args.tools_reset:
         reset_tools()
         print("已重置全局工具注册表和执行器")
@@ -2572,6 +2571,130 @@ def cmd_tools(args):
     print(f"\n按类别:")
     for cat, count in sorted(categories.items()):
         print(f"  {cat}: {count}")
+    return 0
+
+
+def cmd_planner(args):
+    """seva planner: 智能决策与自主规划（阶段63）"""
+    import json
+    from .planner import (Goal, PlanStrategy, PlanStatus,
+                          get_planner, get_plan_executor, get_reflector,
+                          get_decision_maker, get_autonomous_agent,
+                          reset_planner, reset_reflector,
+                          reset_decision_maker, reset_autonomous_agent)
+
+    if args.planner_reset:
+        reset_planner()
+        reset_reflector()
+        reset_decision_maker()
+        reset_autonomous_agent()
+        print("已重置全局规划器/反思器/决策器/自主Agent")
+        return 0
+
+    # 运行自主Agent
+    if args.run:
+        agent = get_autonomous_agent()
+        goal = Goal(
+            description=args.run,
+            success_criteria=args.criteria or "",
+        )
+        print(f"\n=== 启动自主Agent ===")
+        print(f"目标: {goal.description}")
+        if goal.success_criteria:
+            print(f"成功标准: {goal.success_criteria}")
+        print(f"最大重规划: {args.max_replans or 2}")
+        print(f"最大迭代: {args.max_iterations or 10}")
+        print("-" * 60)
+
+        result = agent.run(
+            goal,
+            max_replans=args.max_replans or 2,
+            max_iterations=args.max_iterations or 10,
+        )
+
+        print(f"\n=== 执行结果 ===")
+        print(f"状态: {result.status.value}")
+        print(f"迭代: {result.iterations}")
+        print(f"Tokens: {result.total_tokens}")
+        print(f"延迟: {result.total_latency_ms:.0f}ms")
+        if result.final_output:
+            print(f"\n最终输出:")
+            print(result.final_output[:500])
+        if result.task_results:
+            print(f"\n任务结果 ({len(result.task_results)}个):")
+            for tr in result.task_results:
+                status_icon = "✓" if tr.success else "✗"
+                print(f"  {status_icon} {tr.task_id}: {tr.status.value}")
+        if result.reflections:
+            print(f"\n反思 ({len(result.reflections)}次):")
+            for ref in result.reflections:
+                print(f"  - 成功: {ref.get('success')}")
+                if ref.get('summary'):
+                    print(f"    摘要: {ref['summary'][:100]}")
+        return 0 if result.success else 1
+
+    # 仅分解目标(不执行)
+    if args.decompose:
+        planner = get_planner()
+        goal = Goal(description=args.decompose)
+        tasks = planner.decompose_goal(goal)
+        print(f"\n=== 目标分解结果 ===")
+        print(f"目标: {args.decompose}")
+        print(f"任务数: {len(tasks)}")
+        print("-" * 60)
+        for i, task in enumerate(tasks, 1):
+            print(f"[{i}] {task.description}")
+            if task.expected_output:
+                print(f"    期望输出: {task.expected_output}")
+            if task.tools_needed:
+                print(f"    工具: {', '.join(task.tools_needed)}")
+            print(f"    难度: {task.difficulty:.1f}")
+            if task.dependencies:
+                print(f"    依赖: {task.dependencies}")
+        return 0
+
+    # 显示报告
+    if args.report:
+        agent = get_autonomous_agent()
+        report = agent.get_report()
+        print(f"\n=== 自主Agent报告 ===")
+        print("-" * 60)
+        for component, stats in report.items():
+            if isinstance(stats, dict):
+                print(f"\n{component}:")
+                for k, v in stats.items():
+                    print(f"  {k}: {v}")
+            else:
+                print(f"{component}: {stats}")
+        return 0
+
+    # 显示历史
+    if args.history:
+        agent = get_autonomous_agent()
+        history = agent.get_history()
+        print(f"\n=== 执行历史 ({len(history)}条) ===")
+        print("-" * 60)
+        for i, h in enumerate(history, 1):
+            print(f"[{i}] 计划: {h.get('plan_id', '?')} v{h.get('version', 1)}")
+            print(f"    状态: {h.get('status', '?')}")
+            if h.get('reflection', {}).get('summary'):
+                print(f"    反思: {h['reflection']['summary'][:80]}")
+        return 0
+
+    # 默认显示帮助
+    print("seva planner - 智能决策与自主规划")
+    print()
+    print("用法:")
+    print("  seva planner --run '目标描述'              # 运行自主Agent")
+    print("  seva planner --decompose '目标描述'         # 仅分解目标")
+    print("  seva planner --report                       # 显示报告")
+    print("  seva planner --history                      # 显示历史")
+    print("  seva planner --planner-reset                # 重置全局状态")
+    print()
+    print("选项:")
+    print("  --criteria '标准'       成功标准")
+    print("  --max-replans N         最大重规划次数 (默认2)")
+    print("  --max-iterations N      最大迭代次数 (默认10)")
     return 0
 
 
@@ -3713,6 +3836,27 @@ def build_parser():
     tools_parser.add_argument("--tools-reset", action="store_true",
                                help="重置全局工具注册表和执行器")
     tools_parser.set_defaults(func=cmd_tools)
+
+    # planner 命令 (阶段63)
+    planner_parser = subparsers.add_parser("planner",
+                                            help="智能决策与自主规划")
+    planner_parser.add_argument("--run", type=str, default=None,
+                                 help="运行自主Agent (传入目标)")
+    planner_parser.add_argument("--decompose", type=str, default=None,
+                                 help="仅分解目标 (不执行)")
+    planner_parser.add_argument("--criteria", type=str, default=None,
+                                 help="成功标准")
+    planner_parser.add_argument("--max-replans", type=int, default=None,
+                                 help="最大重规划次数 (默认2)")
+    planner_parser.add_argument("--max-iterations", type=int, default=None,
+                                 help="最大迭代次数 (默认10)")
+    planner_parser.add_argument("--report", action="store_true",
+                                 help="显示自主Agent报告")
+    planner_parser.add_argument("--history", action="store_true",
+                                 help="显示执行历史")
+    planner_parser.add_argument("--planner-reset", action="store_true",
+                                 help="重置全局规划器/反思器/决策器/Agent")
+    planner_parser.set_defaults(func=cmd_planner)
 
     return parser
 
