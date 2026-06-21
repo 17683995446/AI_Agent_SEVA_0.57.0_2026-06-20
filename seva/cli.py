@@ -2202,6 +2202,107 @@ def cmd_stream(args):
     return 0
 
 
+def cmd_benchmark(args):
+    """seva benchmark: 性能基准与自动调优（阶段57）"""
+    from .benchmark import (Benchmark, BenchmarkSuite, BenchmarkResult,
+                            TuningStrategy, ParamTuner, ABTest,
+                            get_benchmark_suite, benchmark, add_benchmark,
+                            run_benchmarks, tune, ab_test,
+                            get_benchmark_report, get_benchmark_status,
+                            reset_benchmarks)
+
+    if args.reset:
+        reset_benchmarks()
+        print("已重置基准测试状态")
+        return 0
+
+    if args.demo:
+        print("演示性能基准测试...")
+        reset_benchmarks()
+
+        # 1. 基准测试
+        print("\n1. 基准测试:")
+        result = benchmark("list_sort", lambda: sorted([3, 1, 4, 1, 5, 9, 2, 6] * 100),
+                           iterations=5)
+        print(f"  {result.summary()}")
+
+        # 2. A/B测试
+        print("\n2. A/B测试:")
+        ab_result = ab_test(
+            "sort_vs_sorted",
+            func_a=lambda: sorted([3, 1, 4, 1, 5] * 1000),
+            func_b=lambda: list(reversed(sorted([3, 1, 4, 1, 5] * 1000))),
+            iterations=5,
+        )
+        print(f"  {ab_result.summary()}")
+
+        # 3. 参数调优
+        print("\n3. 参数调优:")
+        def objective(x, y):
+            return -(x**2 + y**2)  # 最大化（越接近0越好）
+
+        tune_result = tune(objective, {"x": (0, 5), "y": (0, 5)},
+                           strategy="grid", step=1)
+        print(f"  {tune_result.summary()}")
+
+        return 0
+
+    if args.tune:
+        # 演示调优
+        print("参数调优演示...")
+        def objective(x, y):
+            return -(x**2 + y**2)
+
+        result = tune(objective, {"x": (0, 10), "y": (0, 10)},
+                      strategy=args.tune, step=2 if args.tune == "grid" else 1,
+                      n_trials=20)
+        print(f"\n{result.summary()}")
+        print(f"\n所有结果:")
+        for r in result.all_results[:5]:
+            print(f"  params={r['params']}, score={r['score']:.4f}")
+        if len(result.all_results) > 5:
+            print(f"  ... (共{len(result.all_results)}个结果)")
+        return 0
+
+    if args.ab:
+        # A/B测试
+        print(f"A/B测试: {args.ab}")
+        result = ab_test(
+            args.ab,
+            func_a=lambda: sorted(list(range(1000, 0, -1))),
+            func_b=lambda: list(reversed(sorted(list(range(1000, 0, -1))))),
+            iterations=10,
+        )
+        print(f"\n{result.summary()}")
+        return 0
+
+    if args.list:
+        suite = get_benchmark_suite()
+        tests = suite.list_tests()
+        if not tests:
+            print("无注册基准测试")
+            return 0
+        print("\n已注册基准测试:")
+        for name in tests:
+            print(f"  - {name}")
+        return 0
+
+    if args.run:
+        # 运行全局套件
+        print("运行所有基准测试...")
+        results = run_benchmarks()
+        if not results:
+            print("无注册测试")
+            return 0
+        suite = get_benchmark_suite()
+        print(suite.compare(results))
+        return 0
+
+    # 默认显示报告
+    print(get_benchmark_report())
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -3023,6 +3124,26 @@ def build_parser():
     stream_parser.add_argument("--reset", action="store_true",
                                 help="重置流处理状态")
     stream_parser.set_defaults(func=cmd_stream)
+
+    # benchmark命令（阶段57）
+    bench_parser = subparsers.add_parser("benchmark",
+                                          help="性能基准与自动调优")
+    bench_parser.add_argument("--report", action="store_true",
+                               help="显示基准测试报告 (默认)")
+    bench_parser.add_argument("--list", action="store_true",
+                               help="列出所有基准测试")
+    bench_parser.add_argument("--run", action="store_true",
+                               help="运行所有基准测试")
+    bench_parser.add_argument("--demo", action="store_true",
+                               help="演示性能基准功能")
+    bench_parser.add_argument("--tune", type=str, default=None,
+                               choices=["grid", "random"],
+                               help="参数调优 (指定策略)")
+    bench_parser.add_argument("--ab", type=str, default=None,
+                               help="A/B测试 (指定测试名称)")
+    bench_parser.add_argument("--reset", action="store_true",
+                               help="重置基准测试状态")
+    bench_parser.set_defaults(func=cmd_benchmark)
 
     return parser
 

@@ -26,6 +26,7 @@
 阶段54: 插件系统与扩展架构
 阶段55: 多Agent协作与编排
 阶段56: 实时流处理与事件驱动
+阶段57: 性能基准与自动调优
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -259,6 +260,13 @@ from .streaming import (Event, EventBus, Stream, WindowType, StreamProcessor,
                         publish, subscribe, unsubscribe, stream,
                         create_stream_processor, create_reactive_stream,
                         get_streaming_stats, reset_streaming)
+from .benchmark import (Benchmark, BenchmarkSuite, BenchmarkResult,
+                        TuningStrategy, TuningResult, ParamTuner,
+                        ABTest, ABTestResult,
+                        get_benchmark_suite, benchmark, add_benchmark,
+                        run_benchmarks, tune, ab_test,
+                        get_benchmark_report, get_benchmark_status,
+                        reset_benchmarks)
 
 __all__ = [
     "Config",
@@ -597,6 +605,23 @@ __all__ = [
     "create_reactive_stream",
     "get_streaming_stats",
     "reset_streaming",
+    "Benchmark",
+    "BenchmarkSuite",
+    "BenchmarkResult",
+    "TuningStrategy",
+    "TuningResult",
+    "ParamTuner",
+    "ABTest",
+    "ABTestResult",
+    "get_benchmark_suite",
+    "benchmark",
+    "add_benchmark",
+    "run_benchmarks",
+    "tune",
+    "ab_test",
+    "get_benchmark_report",
+    "get_benchmark_status",
+    "reset_benchmarks",
 ]
 
-__version__ = "0.56.0"
+__version__ = "0.57.0"
