@@ -34,6 +34,7 @@
 阶段62: 工具调用与Function Calling
 阶段63: 智能决策与自主规划
 阶段64: Agent基类与生命周期管理
+阶段65: 对话Agent
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -167,6 +168,13 @@
     runner.register(agent)                                      # 注册
     agent.start()                                               # 启动
     result = agent.run("hello")                                 # 运行
+
+    from seva import ConversationAgent, ConversationConfig
+    conv = ConversationAgent(config=ConversationConfig())       # 对话Agent
+    conv.start()                                                # 启动
+    session = conv.new_session(user_id="user1")                 # 创建会话
+    r1 = conv.chat("你好")                                      # 第一轮对话
+    r2 = conv.chat("我刚才说了什么?")                           # 第二轮(有上下文)
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -358,7 +366,10 @@ from .planner import (Goal, Task, TaskStatus, Plan, PlanStatus, PlanStrategy,
 from .agents import (AgentState, AgentEventType, AgentEvent,
                      AgentConfig, AgentStats, AgentContext, AgentRunResult,
                      BaseAgent, AgentRunner,
-                     get_agent_runner, reset_agent_runner)
+                     get_agent_runner, reset_agent_runner,
+                     Session, SessionStatus, SessionManager,
+                     ConversationConfig, ConversationAgent,
+                     get_conversation_agent, reset_conversation_agent)
 
 __all__ = [
     "Config",
@@ -823,6 +834,13 @@ __all__ = [
     "AgentRunner",
     "get_agent_runner",
     "reset_agent_runner",
+    "Session",
+    "SessionStatus",
+    "SessionManager",
+    "ConversationConfig",
+    "ConversationAgent",
+    "get_conversation_agent",
+    "reset_conversation_agent",
 ]
 
-__version__ = "0.64.0"
+__version__ = "0.65.0"

@@ -2796,6 +2796,121 @@ def cmd_agent(args):
     return 0
 
 
+def cmd_chat(args):
+    """seva chat: 对话Agent交互（阶段65）"""
+    from .agents import ConversationAgent, ConversationConfig, SessionStatus
+    from .agents import get_conversation_agent, reset_conversation_agent
+
+    if args.chat_reset:
+        reset_conversation_agent()
+        print("已重置全局对话Agent")
+        return 0
+
+    agent = get_conversation_agent()
+
+    # 列出会话
+    if args.sessions:
+        sessions = agent.list_sessions()
+        print(f"\n=== 会话列表 ({len(sessions)}个) ===")
+        print("-" * 60)
+        for s in sessions:
+            print(f"  [{s.status.value:8s}] {s.session_id} ({s.title or '无标题'})")
+            print(f"              消息: {s.message_count}, Tokens: {s.total_tokens}")
+        return 0
+
+    # 切换会话
+    if args.switch_session:
+        if agent.switch_session(args.switch_session):
+            print(f"已切换到会话: {args.switch_session}")
+            return 0
+        else:
+            print(f"会话不存在: {args.switch_session}")
+            return 1
+
+    # 关闭会话
+    if args.close_session:
+        if agent.close_session(args.close_session):
+            print(f"已关闭会话: {args.close_session}")
+            return 0
+        else:
+            print(f"关闭失败: {args.close_session}")
+            return 1
+
+    # 新建会话
+    if args.new_session:
+        session = agent.new_session(title=args.new_session)
+        print(f"已创建新会话: {session.session_id}")
+        return 0
+
+    # 显示历史
+    if args.history:
+        session = agent.get_current_session()
+        if session is None:
+            print("无当前会话")
+            return 1
+        messages = session.get_messages()
+        print(f"\n=== 会话历史 ({len(messages)}条) ===")
+        print("-" * 60)
+        for msg in messages:
+            role = msg["role"]
+            content = msg["content"][:200]
+            print(f"[{role}] {content}")
+        return 0
+
+    # 单次对话
+    if args.message:
+        agent.start()
+        result = agent.chat(args.message, use_tools=args.use_tools)
+        if result.success:
+            print(f"\n=== 回答 ===")
+            print(result.output)
+            print(f"\n[Tokens: {result.tokens_used}, 延迟: {result.latency_ms:.0f}ms]")
+            return 0
+        else:
+            print(f"对话失败: {result.error}")
+            return 1
+
+    # 交互模式
+    if args.interactive:
+        agent.start()
+        print("=== 对话模式 (输入 quit/exit 退出) ===")
+        print("-" * 60)
+        session = agent.new_session(title="interactive")
+        print(f"会话ID: {session.session_id}")
+        print()
+        while True:
+            try:
+                user_input = input("用户> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print("\n再见!")
+                break
+            if user_input.lower() in ("quit", "exit", "q"):
+                print("再见!")
+                break
+            if not user_input:
+                continue
+            result = agent.chat(user_input, use_tools=args.use_tools)
+            if result.success:
+                print(f"助手> {result.output}")
+            else:
+                print(f"错误> {result.error}")
+            print()
+        return 0
+
+    # 默认显示帮助
+    print("seva chat - 对话Agent")
+    print()
+    print("用法:")
+    print("  seva chat -m '你好'                    # 单次对话")
+    print("  seva chat -i                           # 交互模式")
+    print("  seva chat --sessions                   # 列出会话")
+    print("  seva chat --new-session '标题'          # 新建会话")
+    print("  seva chat --history                    # 显示历史")
+    print("  seva chat --switch SESS_ID             # 切换会话")
+    print("  seva chat --close SESS_ID              # 关闭会话")
+    return 0
+
+
 def cmd_llm_loop(args):
     """seva llm-loop: 16阶段循环LLM增强管理（阶段60）"""
     from .llm_loop import get_llm_loop, reset_llm_loop
@@ -3977,6 +4092,28 @@ def build_parser():
     agent_parser.add_argument("--agent-reset", action="store_true",
                                help="重置全局Agent运行器")
     agent_parser.set_defaults(func=cmd_agent)
+
+    # chat 命令 (阶段65)
+    chat_parser = subparsers.add_parser("chat", help="对话Agent交互")
+    chat_parser.add_argument("-m", "--message", type=str, default=None,
+                              help="单次对话消息")
+    chat_parser.add_argument("-i", "--interactive", action="store_true",
+                              help="交互模式")
+    chat_parser.add_argument("--use-tools", action="store_true",
+                              help="启用工具调用")
+    chat_parser.add_argument("--sessions", action="store_true",
+                              help="列出所有会话")
+    chat_parser.add_argument("--new-session", type=str, default=None,
+                              help="新建会话 (传入标题)")
+    chat_parser.add_argument("--switch-session", type=str, default=None,
+                              help="切换会话 (传入会话ID)")
+    chat_parser.add_argument("--close-session", type=str, default=None,
+                              help="关闭会话 (传入会话ID)")
+    chat_parser.add_argument("--history", action="store_true",
+                              help="显示当前会话历史")
+    chat_parser.add_argument("--chat-reset", action="store_true",
+                              help="重置全局对话Agent")
+    chat_parser.set_defaults(func=cmd_chat)
 
     return parser
 

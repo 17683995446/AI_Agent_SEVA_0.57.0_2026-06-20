@@ -24,8 +24,14 @@ from .base import (
     BaseAgent, AgentRunner,
     get_agent_runner, reset_agent_runner,
 )
+from .conversation import (
+    Session, SessionStatus, SessionManager,
+    ConversationConfig, ConversationAgent,
+    get_conversation_agent, reset_conversation_agent,
+)
 
 __all__ = [
+    # 阶段64
     "AgentState",
     "AgentEventType",
     "AgentEvent",
@@ -37,4 +43,13 @@ __all__ = [
     "AgentRunner",
     "get_agent_runner",
     "reset_agent_runner",
+    # 阶段65
+    "Session",
+    "SessionStatus",
+    "SessionManager",
+    "ConversationConfig",
+    "ConversationAgent",
+    "get_conversation_agent",
+    "reset_conversation_agent",
 ]
+
