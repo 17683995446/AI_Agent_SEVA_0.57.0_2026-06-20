@@ -1389,6 +1389,80 @@ def cmd_i18n(args):
     return 0
 
 
+def cmd_error(args):
+    """seva error: 错误处理与恢复（阶段48）"""
+    from .error_handling import (FriendlyError, ErrorSuggester,
+                                 SafeExecutor, ErrorRecovery,
+                                 handle_error, suggest_fix,
+                                 safe_run, retry, format_error,
+                                 log_error, get_error_log,
+                                 clear_error_log)
+
+    if args.suggest:
+        # 模拟错误给出建议
+        try:
+            raise eval(args.suggest)
+        except Exception as e:
+            suggestion = suggest_fix(e)
+            print(f"\n错误: {type(e).__name__}: {e}")
+            print("=" * 50)
+            print(f"原因: {suggestion['cause']}")
+            print(f"建议: {suggestion['suggestion']}")
+            print(f"恢复操作: {suggestion['recovery_action']}")
+        return 0
+
+    if args.log:
+        # 查看错误日志
+        errors = get_error_log(args.log)
+        if not errors:
+            print("错误日志为空")
+            return 0
+        print(f"\n错误日志 ({len(errors)}条):")
+        print("=" * 60)
+        for i, err in enumerate(errors, 1):
+            print(f"\n{i}. {err.get('message', 'N/A')}")
+            if err.get("cause"):
+                print(f"   原因: {err['cause']}")
+            if err.get("suggestion"):
+                print(f"   建议: {err['suggestion']}")
+        return 0
+
+    if args.clear_log:
+        if clear_error_log(args.clear_log):
+            print(f"已清空错误日志: {args.clear_log}")
+        else:
+            print(f"日志文件不存在: {args.clear_log}")
+        return 0
+
+    if args.test:
+        # 测试错误处理
+        print("测试错误处理...")
+        test_errors = [
+            FileNotFoundError("test_config.yaml"),
+            ValueError("invalid value"),
+            KeyError("missing_key"),
+            ImportError("nonexistent_module"),
+        ]
+        for err in test_errors:
+            print(f"\n{'='*50}")
+            print(format_error(err))
+        return 0
+
+    # 默认显示帮助
+    print("SEVA错误处理工具")
+    print("=" * 50)
+    print("\n可用选项:")
+    print("  --suggest 'Error(...)'  对模拟错误给出建议")
+    print("  --log PATH              查看错误日志")
+    print("  --clear-log PATH        清空错误日志")
+    print("  --test                  测试错误处理")
+    print("\nPython API:")
+    print("  from seva import safe_run, retry, handle_error")
+    print("  result = safe_run(func, default='fallback')")
+    print("  result = retry(func, max_retries=3)")
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -1963,6 +2037,19 @@ def build_parser():
     i18n_parser.add_argument("--stats", action="store_true",
                              help="查看统计信息")
     i18n_parser.set_defaults(func=cmd_i18n)
+
+    # 阶段48: error命令 - 错误处理与恢复
+    error_parser = subparsers.add_parser("error", help="错误处理与恢复")
+    error_parser.add_argument("--suggest", type=str, default=None,
+                              help="对模拟错误给出建议 (如 'ValueError(\"test\")')")
+    error_parser.add_argument("--log", type=str, default=None,
+                              help="查看错误日志文件")
+    error_parser.add_argument("--clear-log", type=str, default=None,
+                              dest="clear_log",
+                              help="清空错误日志文件")
+    error_parser.add_argument("--test", action="store_true",
+                              help="测试错误处理功能")
+    error_parser.set_defaults(func=cmd_error)
 
     # diagnose命令
     diagnose_parser = subparsers.add_parser("diagnose", help="诊断系统")

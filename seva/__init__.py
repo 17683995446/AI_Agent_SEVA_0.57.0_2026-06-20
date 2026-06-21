@@ -17,6 +17,7 @@
 阶段45: 用户偏好与个性化设置
 阶段46: 帮助系统与文档集成
 阶段47: 国际化与多语言支持
+阶段48: 友好错误处理与恢复
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -72,6 +73,11 @@
     print(t("welcome"))             # 输出英文欢迎语
     set_language("zh_CN")           # 切换回中文
     print(list_languages())         # 列出支持的语言
+
+    from seva import safe_run, retry, handle_error, format_error
+    result = safe_run(risky_func, default="fallback")  # 安全执行
+    result = retry(unstable_func, max_retries=3)       # 重试执行
+    print(format_error(some_error))                    # 友好错误格式
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -149,6 +155,12 @@ from .i18n import (TranslationCatalog, I18n,
                    get_i18n_stats, get_i18n_report,
                    register_catalog, get_catalog,
                    list_translation_keys)
+from .error_handling import (FriendlyError, ErrorRecovery,
+                             ErrorSuggester, SafeExecutor,
+                             handle_error, suggest_fix,
+                             safe_run, retry, safe_execute,
+                             format_error, log_error,
+                             get_error_log, clear_error_log)
 
 __all__ = [
     "Config",
@@ -312,6 +324,19 @@ __all__ = [
     "register_catalog",
     "get_catalog",
     "list_translation_keys",
+    "FriendlyError",
+    "ErrorRecovery",
+    "ErrorSuggester",
+    "SafeExecutor",
+    "handle_error",
+    "suggest_fix",
+    "safe_run",
+    "retry",
+    "safe_execute",
+    "format_error",
+    "log_error",
+    "get_error_log",
+    "clear_error_log",
 ]
 
-__version__ = "0.47.0"
+__version__ = "0.48.0"
