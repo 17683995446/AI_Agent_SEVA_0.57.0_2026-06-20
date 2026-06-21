@@ -2130,6 +2130,78 @@ def cmd_orchestrate(args):
     return 0
 
 
+def cmd_stream(args):
+    """seva stream: 实时流处理与事件驱动（阶段56）"""
+    from .streaming import (EventBus, Stream, StreamProcessor, WindowType,
+                            ReactiveStream, Event, get_event_bus, publish,
+                            subscribe, get_streaming_stats, reset_streaming,
+                            stream as create_stream)
+
+    if args.reset:
+        reset_streaming()
+        print("已重置流处理状态")
+        return 0
+
+    if args.demo:
+        print("演示流处理...")
+        reset_streaming()
+
+        # 1. 事件总线演示
+        print("\n1. 事件总线演示:")
+        bus = get_event_bus()
+        events = []
+        unsubscribe = subscribe("user.*", lambda e: events.append(e.data))
+        publish("user.login", {"user": "alice"})
+        publish("user.logout", {"user": "bob"})
+        publish("system.start", {"time": "now"})  # 不匹配
+        print(f"  收到事件: {events}")
+        unsubscribe()
+
+        # 2. 数据流演示
+        print("\n2. 数据流演示:")
+        result = create_stream([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).map(
+            lambda x: x * 2).filter(lambda x: x > 10).to_list()
+        print(f"  map(x*2).filter(>10): {result}")
+
+        total = create_stream([1, 2, 3, 4, 5]).reduce(lambda a, b: a + b, 0)
+        print(f"  reduce(sum): {total}")
+
+        # 3. 窗口处理演示
+        print("\n3. 窗口处理演示:")
+        processor = StreamProcessor(window_size=3, window_type=WindowType.TUMBLING)
+        windows = processor.process([1, 2, 3, 4, 5, 6], lambda w: sum(w))
+        print(f"  翻滚窗口(3): {windows}")
+
+        processor2 = StreamProcessor(window_size=3, window_type=WindowType.SLIDING,
+                                     slide_size=2)
+        windows2 = processor2.process([1, 2, 3, 4, 5], lambda w: sum(w))
+        print(f"  滑动窗口(3,slide=2): {windows2}")
+
+        print(f"\n统计: {get_streaming_stats()}")
+        return 0
+
+    if args.stats:
+        stats = get_streaming_stats()
+        print("\n流处理统计:")
+        print("-" * 60)
+        for k, v in stats.items():
+            print(f"  {k}: {v}")
+        return 0
+
+    if args.publish:
+        publish(args.publish, data=args.data)
+        print(f"已发布事件: {args.publish}")
+        return 0
+
+    # 默认显示统计
+    stats = get_streaming_stats()
+    print("\n流处理统计:")
+    print("-" * 60)
+    for k, v in stats.items():
+        print(f"  {k}: {v}")
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -2936,6 +3008,21 @@ def build_parser():
     orch_parser.add_argument("--reset", action="store_true",
                               help="重置所有编排状态")
     orch_parser.set_defaults(func=cmd_orchestrate)
+
+    # stream命令（阶段56）
+    stream_parser = subparsers.add_parser("stream",
+                                           help="实时流处理与事件驱动")
+    stream_parser.add_argument("--stats", action="store_true",
+                                help="显示流处理统计 (默认)")
+    stream_parser.add_argument("--demo", action="store_true",
+                                help="演示流处理功能")
+    stream_parser.add_argument("--publish", type=str, default=None,
+                                help="发布事件 (指定事件类型)")
+    stream_parser.add_argument("--data", type=str, default=None,
+                                help="事件数据")
+    stream_parser.add_argument("--reset", action="store_true",
+                                help="重置流处理状态")
+    stream_parser.set_defaults(func=cmd_stream)
 
     return parser
 

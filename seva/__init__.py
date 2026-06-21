@@ -25,6 +25,7 @@
 阶段53: 系统稳定性与容错增强
 阶段54: 插件系统与扩展架构
 阶段55: 多Agent协作与编排
+阶段56: 实时流处理与事件驱动
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -253,6 +254,11 @@ from .orchestration import (TaskNode, TaskStatus, ExecutionMode, WorkflowStatus,
                             list_workflows, get_workflow_result,
                             get_orchestration_report, get_orchestration_status,
                             reset_orchestration)
+from .streaming import (Event, EventBus, Stream, WindowType, StreamProcessor,
+                        ReactiveStream, get_event_bus, set_event_bus,
+                        publish, subscribe, unsubscribe, stream,
+                        create_stream_processor, create_reactive_stream,
+                        get_streaming_stats, reset_streaming)
 
 __all__ = [
     "Config",
@@ -575,6 +581,22 @@ __all__ = [
     "get_orchestration_report",
     "get_orchestration_status",
     "reset_orchestration",
+    "Event",
+    "EventBus",
+    "Stream",
+    "WindowType",
+    "StreamProcessor",
+    "ReactiveStream",
+    "get_event_bus",
+    "set_event_bus",
+    "publish",
+    "subscribe",
+    "unsubscribe",
+    "stream",
+    "create_stream_processor",
+    "create_reactive_stream",
+    "get_streaming_stats",
+    "reset_streaming",
 ]
 
-__version__ = "0.55.0"
+__version__ = "0.56.0"
