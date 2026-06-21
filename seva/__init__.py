@@ -30,6 +30,7 @@
 阶段58: LLM客户端与API对接
 阶段59: Prompt工程与模板管理
 阶段60: 16阶段循环LLM化
+阶段61: 记忆与上下文管理
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -128,6 +129,11 @@
     loop = get_llm_loop()                                       # LLM循环管理
     result = loop.call_stage("goal_generator", inputs={"input": "data"})
     print(result.parsed_output)                                 # 解析后的JSON
+
+    from seva import get_memory_manager, MemoryType
+    memory = get_memory_manager()                               # 记忆管理
+    memory.add("重要信息:...", MemoryType.SEMANTIC, importance=0.9)
+    context = memory.build_context("查询")                      # 构造LLM上下文
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -299,6 +305,10 @@ from .prompts import (SectionType, PromptVariable, FewShotExample, PromptSection
 from .llm_loop import (LLMStageStatus, LLMRole, LLMStageResult,
                        parse_json_output, LLMLoop,
                        get_llm_loop, set_llm_loop, reset_llm_loop)
+from .memory_llm import (MemoryType, MemoryEntry, TokenBudget,
+                        ContextCompressor, MemoryManager,
+                        get_memory_manager, set_memory_manager,
+                        reset_memory_manager)
 
 __all__ = [
     "Config",
@@ -705,6 +715,14 @@ __all__ = [
     "get_llm_loop",
     "set_llm_loop",
     "reset_llm_loop",
+    "MemoryType",
+    "MemoryEntry",
+    "TokenBudget",
+    "ContextCompressor",
+    "MemoryManager",
+    "get_memory_manager",
+    "set_memory_manager",
+    "reset_memory_manager",
 ]
 
-__version__ = "0.60.0"
+__version__ = "0.61.0"

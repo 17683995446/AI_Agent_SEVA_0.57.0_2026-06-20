@@ -2366,6 +2366,79 @@ def cmd_llm(args):
     return 0
 
 
+def cmd_memory(args):
+    """seva memory: LLM增强的记忆与上下文管理（阶段61）"""
+    from .memory_llm import (get_memory_manager, MemoryType, reset_memory_manager)
+    import json
+
+    if args.memory_reset:
+        reset_memory_manager()
+        print("已重置全局记忆管理器")
+        return 0
+
+    manager = get_memory_manager()
+
+    # 添加记忆
+    if args.add:
+        mt = MemoryType(args.type) if args.type else MemoryType.EPISODIC
+        importance = float(args.importance) if args.importance else 0.5
+        entry = manager.add(args.add, mt, importance=importance,
+                           auto_summarize=False)
+        print(f"已添加记忆: {entry.id}")
+        print(f"  类型: {entry.memory_type.value}")
+        print(f"  重要性: {entry.importance}")
+        print(f"  关键词: {entry.keywords[:5]}")
+        return 0
+
+    # 搜索记忆
+    if args.search:
+        results = manager.retrieve(args.search, limit=args.limit or 5)
+        print(f"\n搜索 '{args.search}' 结果 (共{len(results)}条):")
+        print("-" * 60)
+        for i, entry in enumerate(results, 1):
+            print(f"[{i}] {entry.id} ({entry.memory_type.value})")
+            print(f"    重要性: {entry.current_importance():.2f}")
+            print(f"    内容: {entry.content[:80]}...")
+        return 0
+
+    # 构造上下文
+    if args.context:
+        context = manager.build_context(args.context, max_tokens=300)
+        print(f"\n上下文 (查询: '{args.context}'):")
+        print("-" * 60)
+        print(context if context else "(无相关记忆)")
+        return 0
+
+    # 清空记忆
+    if args.clear:
+        if args.type:
+            count = manager.clear(MemoryType(args.type))
+            print(f"已清空 {args.type} 类型记忆 {count} 条")
+        else:
+            count = manager.clear()
+            print(f"已清空所有记忆 {count} 条")
+        return 0
+
+    # 默认显示报告
+    report = manager.get_report()
+    print(f"\n=== 记忆管理器报告 ===")
+    print(f"容量: {report['capacity']}")
+    print(f"Embedding维度: {report['embedding_dim']}")
+    print(f"记忆预算: {report['memory_budget']} tokens")
+    print(f"LLM摘要: {'启用' if report['enable_llm_summary'] else '禁用'}")
+    print(f"\n统计:")
+    for k, v in report['stats'].items():
+        if isinstance(v, dict):
+            print(f"  {k}:")
+            for k2, v2 in v.items():
+                print(f"    {k2}: {v2}")
+        elif isinstance(v, float):
+            print(f"  {k}: {v:.2f}")
+        else:
+            print(f"  {k}: {v}")
+    return 0
+
+
 def cmd_llm_loop(args):
     """seva llm-loop: 16阶段循环LLM增强管理（阶段60）"""
     from .llm_loop import get_llm_loop, reset_llm_loop
@@ -3460,6 +3533,26 @@ def build_parser():
     llm_loop_parser.add_argument("--llm-loop-reset", action="store_true",
                                   help="重置全局LLM Loop")
     llm_loop_parser.set_defaults(func=cmd_llm_loop)
+
+    # memory命令（阶段61）
+    memory_parser = subparsers.add_parser("memory", help="LLM增强的记忆与上下文管理")
+    memory_parser.add_argument("--add", type=str, default=None,
+                                help="添加记忆 (传入内容)")
+    memory_parser.add_argument("--type", type=str, default=None,
+                                help="记忆类型 (episodic/semantic/procedural/working/sensory)")
+    memory_parser.add_argument("--importance", type=str, default=None,
+                                help="重要性 (0.0-1.0)")
+    memory_parser.add_argument("--search", type=str, default=None,
+                                help="搜索记忆")
+    memory_parser.add_argument("--context", type=str, default=None,
+                                help="构造LLM上下文")
+    memory_parser.add_argument("--limit", type=int, default=None,
+                                help="返回数量限制")
+    memory_parser.add_argument("--clear", action="store_true",
+                                help="清空记忆")
+    memory_parser.add_argument("--memory-reset", action="store_true",
+                                help="重置全局记忆管理器")
+    memory_parser.set_defaults(func=cmd_memory)
 
     return parser
 
