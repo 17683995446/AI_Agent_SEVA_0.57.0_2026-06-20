@@ -36,6 +36,7 @@
 阶段64: Agent基类与生命周期管理
 阶段65: 对话Agent
 阶段66: 编程Agent
+阶段67: 研究Agent
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -182,6 +183,13 @@
     coder.start()                                               # 启动
     result = coder.run("写一个函数计算阶乘")                     # 生成+执行+调试
     print(result.output)                                        # 代码与执行结果
+
+    from seva import ResearchAgent, ResearchAgentConfig
+    researcher = ResearchAgent(config=ResearchAgentConfig())    # 研究Agent
+    researcher.start()                                          # 启动
+    report = researcher.research("什么是量子计算?",             # 执行研究
+                                  topic="量子计算")
+    print(report.content)                                       # 研究报告
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -380,7 +388,12 @@ from .agents import (AgentState, AgentEventType, AgentEvent,
                      CodeLanguage, ExecutionStatus, CodeBlock, ExecutionResult, ReviewResult,
                      CodeSandbox, CodeGenerator, CodeReviewer, CodeDebugger,
                      CodeAgentConfig, CodeAgent,
-                     get_code_agent, reset_code_agent)
+                     get_code_agent, reset_code_agent,
+                     ResearchStage, SourceType, ReportFormat,
+                     SourceInfo, ResearchFinding, ResearchReport,
+                     InfoRetriever, InfoAnalyzer, ReportGenerator,
+                     ResearchAgentConfig, ResearchAgent,
+                     get_research_agent, reset_research_agent)
 
 __all__ = [
     "Config",
@@ -865,6 +878,19 @@ __all__ = [
     "CodeAgent",
     "get_code_agent",
     "reset_code_agent",
+    "ResearchStage",
+    "SourceType",
+    "ReportFormat",
+    "SourceInfo",
+    "ResearchFinding",
+    "ResearchReport",
+    "InfoRetriever",
+    "InfoAnalyzer",
+    "ReportGenerator",
+    "ResearchAgentConfig",
+    "ResearchAgent",
+    "get_research_agent",
+    "reset_research_agent",
 ]
 
-__version__ = "0.66.0"
+__version__ = "0.67.0"

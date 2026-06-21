@@ -2985,6 +2985,61 @@ def cmd_code(args):
     return 0
 
 
+def cmd_research(args):
+    """seva research: 研究Agent（阶段67）"""
+    from .agents import ResearchAgent, ResearchAgentConfig, ReportFormat
+    from .agents import get_research_agent, reset_research_agent
+
+    if args.research_reset:
+        reset_research_agent()
+        print("已重置全局研究Agent")
+        return 0
+
+    agent = get_research_agent()
+
+    # 执行研究
+    if args.query:
+        agent.start()
+        result = agent.run(args.query, topic=args.topic or args.query)
+        if result.success:
+            print(f"\n=== 研究报告 ===")
+            print(result.output)
+            print(f"\n[信息源: {result.metadata.get('sources_count', 0)}, "
+                  f"发现: {result.metadata.get('findings_count', 0)}, "
+                  f"Tokens: {result.tokens_used}, "
+                  f"延迟: {result.latency_ms:.0f}ms]")
+            return 0
+        else:
+            print(f"研究失败: {result.error}")
+            return 1
+
+    # 显示统计
+    if args.stats:
+        stats = agent.get_stats()
+        print(f"\n=== 研究Agent统计 ===")
+        print("-" * 60)
+        for k, v in stats.items():
+            if isinstance(v, dict):
+                print(f"\n{k}:")
+                for sk, sv in v.items():
+                    print(f"  {sk}: {sv}")
+            elif isinstance(v, float):
+                print(f"  {k}: {v:.2f}")
+            else:
+                print(f"  {k}: {v}")
+        return 0
+
+    # 默认显示帮助
+    print("seva research - 研究Agent")
+    print()
+    print("用法:")
+    print("  seva research -q '什么是人工智能?'       # 执行研究")
+    print("  seva research -q '查询' --topic '主题'   # 指定主题")
+    print("  seva research --stats                    # 显示统计")
+    print("  seva research --research-reset           # 重置Agent")
+    return 0
+
+
 def cmd_llm_loop(args):
     """seva llm-loop: 16阶段循环LLM增强管理（阶段60）"""
     from .llm_loop import get_llm_loop, reset_llm_loop
@@ -4204,6 +4259,18 @@ def build_parser():
     code_parser.add_argument("--code-reset", action="store_true",
                               help="重置全局编程Agent")
     code_parser.set_defaults(func=cmd_code)
+
+    # research 命令 (阶段67)
+    research_parser = subparsers.add_parser("research", help="研究Agent")
+    research_parser.add_argument("-q", "--query", type=str, default=None,
+                                  help="研究查询")
+    research_parser.add_argument("--topic", type=str, default=None,
+                                  help="研究主题")
+    research_parser.add_argument("--stats", action="store_true",
+                                  help="显示统计")
+    research_parser.add_argument("--research-reset", action="store_true",
+                                  help="重置全局研究Agent")
+    research_parser.set_defaults(func=cmd_research)
 
     return parser
 

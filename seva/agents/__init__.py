@@ -35,6 +35,13 @@ from .code import (
     CodeAgentConfig, CodeAgent,
     get_code_agent, reset_code_agent,
 )
+from .research import (
+    ResearchStage, SourceType, ReportFormat,
+    SourceInfo, ResearchFinding, ResearchReport,
+    InfoRetriever, InfoAnalyzer, ReportGenerator,
+    ResearchAgentConfig, ResearchAgent,
+    get_research_agent, reset_research_agent,
+)
 
 __all__ = [
     # 阶段64
@@ -71,5 +78,19 @@ __all__ = [
     "CodeAgent",
     "get_code_agent",
     "reset_code_agent",
+    # 阶段67
+    "ResearchStage",
+    "SourceType",
+    "ReportFormat",
+    "SourceInfo",
+    "ResearchFinding",
+    "ResearchReport",
+    "InfoRetriever",
+    "InfoAnalyzer",
+    "ReportGenerator",
+    "ResearchAgentConfig",
+    "ResearchAgent",
+    "get_research_agent",
+    "reset_research_agent",
 ]
 
