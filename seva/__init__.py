@@ -29,6 +29,7 @@
 阶段57: 性能基准与自动调优
 阶段58: LLM客户端与API对接
 阶段59: Prompt工程与模板管理
+阶段60: 16阶段循环LLM化
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -122,6 +123,11 @@
         sections=[PromptSection.task("处理{{input}}")])
     register_prompt(template)                                # 注册模板
     rendered = render_prompt("my_task", inputs={"input": "数据"})  # 渲染Prompt
+
+    from seva import LLMLoop, get_llm_loop, LLMRole
+    loop = get_llm_loop()                                       # LLM循环管理
+    result = loop.call_stage("goal_generator", inputs={"input": "data"})
+    print(result.parsed_output)                                 # 解析后的JSON
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -290,6 +296,9 @@ from .prompts import (SectionType, PromptVariable, FewShotExample, PromptSection
                       get_prompt_registry, register_prompt, get_prompt,
                       list_prompts, unregister_prompt, render_prompt,
                       delete_prompt, reset_prompts)
+from .llm_loop import (LLMStageStatus, LLMRole, LLMStageResult,
+                       parse_json_output, LLMLoop,
+                       get_llm_loop, set_llm_loop, reset_llm_loop)
 
 __all__ = [
     "Config",
@@ -688,6 +697,14 @@ __all__ = [
     "render_prompt",
     "delete_prompt",
     "reset_prompts",
+    "LLMStageStatus",
+    "LLMRole",
+    "LLMStageResult",
+    "parse_json_output",
+    "LLMLoop",
+    "get_llm_loop",
+    "set_llm_loop",
+    "reset_llm_loop",
 ]
 
-__version__ = "0.59.0"
+__version__ = "0.60.0"

@@ -2366,6 +2366,79 @@ def cmd_llm(args):
     return 0
 
 
+def cmd_llm_loop(args):
+    """seva llm-loop: 16阶段循环LLM增强管理（阶段60）"""
+    from .llm_loop import get_llm_loop, reset_llm_loop
+    import json
+
+    if args.llm_loop_reset:
+        reset_llm_loop()
+        print("已重置全局LLM Loop")
+        return 0
+
+    loop = get_llm_loop()
+
+    # 设置启用阶段
+    if args.enable_stages:
+        loop._enabled_stages = set(args.enable_stages.split(","))
+        print(f"已启用阶段: {args.enable_stages}")
+        return 0
+
+    if args.disable_stages:
+        for stage in args.disable_stages.split(","):
+            loop.disable_stage(stage)
+        print(f"已禁用阶段: {args.disable_stages}")
+        return 0
+
+    if args.disable:
+        loop.enable = False
+        print("LLM Loop已禁用")
+        return 0
+
+    if args.enable:
+        loop.enable = True
+        print("LLM Loop已启用")
+        return 0
+
+    # 测试调用
+    if args.test:
+        result = loop.call_stage(
+            args.test,
+            inputs={"input": args.input or "测试输入"},
+            use_cache=False,
+        )
+        print(f"\n=== LLM Loop测试 ({args.test}) ===")
+        print(f"状态: {result.status.value}")
+        print(f"Tokens: {result.total_tokens}")
+        print(f"延迟: {result.latency_ms:.0f}ms")
+        if result.llm_output:
+            print(f"\nLLM输出:")
+            print(result.llm_output[:500])
+        if result.parsed_output:
+            print(f"\n解析后:")
+            print(json.dumps(result.parsed_output, ensure_ascii=False, indent=2))
+        return 0
+
+    # 默认显示报告
+    report = loop.get_report()
+    print(f"\n=== LLM Loop报告 ===")
+    print(f"启用: {report['enabled']}")
+    print(f"启用阶段: {report['enabled_stages']}")
+    print(f"禁用阶段: {report['disabled_stages']}")
+    print(f"\n统计:")
+    for k, v in report['stats'].items():
+        if isinstance(v, float):
+            print(f"  {k}: {v:.2f}")
+        else:
+            print(f"  {k}: {v}")
+    print(f"\n已注册模板: {len(report['registered_templates'])} 个")
+    for stage, name in list(report['registered_templates'].items())[:5]:
+        print(f"  - {stage}: {name}")
+    if len(report['registered_templates']) > 5:
+        print(f"  ... 还有 {len(report['registered_templates']) - 5} 个")
+    return 0
+
+
 def cmd_prompt(args):
     """seva prompt: Prompt工程与模板管理（阶段59）"""
     import json
@@ -3369,6 +3442,24 @@ def build_parser():
     prompt_parser.add_argument("--reset-prompts", action="store_true",
                                help="重置所有模板")
     prompt_parser.set_defaults(func=cmd_prompt)
+
+    # llm-loop命令（阶段60）
+    llm_loop_parser = subparsers.add_parser("llm-loop", help="16阶段循环LLM增强管理")
+    llm_loop_parser.add_argument("--enable", action="store_true",
+                                  help="启用LLM Loop")
+    llm_loop_parser.add_argument("--disable", action="store_true",
+                                  help="禁用LLM Loop")
+    llm_loop_parser.add_argument("--enable-stages", type=str, default=None,
+                                  help="启用指定阶段 (逗号分隔)")
+    llm_loop_parser.add_argument("--disable-stages", type=str, default=None,
+                                  help="禁用指定阶段 (逗号分隔)")
+    llm_loop_parser.add_argument("--test", type=str, default=None,
+                                  help="测试调用某个阶段 (传入阶段名)")
+    llm_loop_parser.add_argument("--input", type=str, default=None,
+                                  help="测试输入")
+    llm_loop_parser.add_argument("--llm-loop-reset", action="store_true",
+                                  help="重置全局LLM Loop")
+    llm_loop_parser.set_defaults(func=cmd_llm_loop)
 
     return parser
 
