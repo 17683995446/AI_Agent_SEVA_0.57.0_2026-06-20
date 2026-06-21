@@ -23,6 +23,7 @@
 阶段51: 可访问性与无障碍支持
 阶段52: 用户行为分析与引导优化
 阶段53: 系统稳定性与容错增强
+阶段54: 插件系统与扩展架构
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -236,6 +237,14 @@ from .stability import (CircuitState, HealthStatus, BackoffStrategy,
                         get_stability_manager, get_stability_report,
                         get_stability_status, reset_stability, circuit,
                         health_check, recover, protected_call)
+from .plugins import (Plugin, PluginInfo, PluginState, PluginContext,
+                      HookType, HookEntry, HookRegistry, PluginLoader,
+                      PluginManager, register_hook, plugin_hook,
+                      get_plugin_manager, register_plugin, unregister_plugin,
+                      enable_plugin, disable_plugin, get_plugin, list_plugins,
+                      list_enabled_plugins, invoke_hooks, emit_event, on_event,
+                      get_plugin_report, get_plugin_status, reset_plugins,
+                      discover_plugins)
 
 __all__ = [
     "Config",
@@ -515,6 +524,32 @@ __all__ = [
     "health_check",
     "recover",
     "protected_call",
+    "Plugin",
+    "PluginInfo",
+    "PluginState",
+    "PluginContext",
+    "HookType",
+    "HookEntry",
+    "HookRegistry",
+    "PluginLoader",
+    "PluginManager",
+    "register_hook",
+    "plugin_hook",
+    "get_plugin_manager",
+    "register_plugin",
+    "unregister_plugin",
+    "enable_plugin",
+    "disable_plugin",
+    "get_plugin",
+    "list_plugins",
+    "list_enabled_plugins",
+    "invoke_hooks",
+    "emit_event",
+    "on_event",
+    "get_plugin_report",
+    "get_plugin_status",
+    "reset_plugins",
+    "discover_plugins",
 ]
 
-__version__ = "0.53.0"
+__version__ = "0.54.0"

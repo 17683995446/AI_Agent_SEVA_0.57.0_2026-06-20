@@ -1945,6 +1945,118 @@ def cmd_stability(args):
     return 0
 
 
+def cmd_plugin(args):
+    """seva plugin: 插件系统管理（阶段54）"""
+    from .plugins import (PluginManager, Plugin, PluginInfo, PluginState,
+                          HookType, get_plugin_report, get_plugin_status,
+                          reset_plugins, discover_plugins, list_plugins,
+                          list_enabled_plugins, invoke_hooks, emit_event)
+
+    if args.reset:
+        reset_plugins()
+        print("已重置所有插件状态")
+        return 0
+
+    if args.discover:
+        print("发现并加载插件...")
+        results = discover_plugins()
+        if not results:
+            print("未发现任何插件")
+        else:
+            for name, success in results.items():
+                status = "成功" if success else "失败"
+                print(f"  {name}: {status}")
+        return 0
+
+    if args.list:
+        plugins = list_plugins()
+        if not plugins:
+            print("无注册插件")
+            return 0
+        print("\n已注册插件:")
+        print("-" * 60)
+        mgr = PluginManager()
+        for name in plugins:
+            info = mgr.get_plugin_info(name)
+            state = info["state"]
+            version = info["info"]["version"]
+            print(f"  [{state.upper():8s}] {name} v{version}")
+        return 0
+
+    if args.enable:
+        if PluginManager().enable(args.enable):
+            print(f"插件 '{args.enable}' 已启用")
+            return 0
+        else:
+            print(f"插件 '{args.enable}' 启用失败")
+            return 1
+
+    if args.disable:
+        if PluginManager().disable(args.disable):
+            print(f"插件 '{args.disable}' 已禁用")
+            return 0
+        else:
+            print(f"插件 '{args.disable}' 禁用失败")
+            return 1
+
+    if args.hooks:
+        status = get_plugin_status()
+        hooks = status["hooks"]
+        print("\n钩子统计:")
+        print("-" * 60)
+        print(f"  钩子总数: {hooks['total_hooks']}")
+        print(f"  事件钩子总数: {hooks['total_event_hooks']}")
+        if hooks["hook_types"]:
+            print("  按类型:")
+            for ht, count in hooks["hook_types"].items():
+                print(f"    {ht}: {count}")
+        if hooks["events"]:
+            print("  按事件:")
+            for event, count in hooks["events"].items():
+                print(f"    {event}: {count}")
+        return 0
+
+    if args.demo:
+        # 演示插件系统
+        print("演示插件系统...")
+        PluginManager.reset_instance()
+        mgr = PluginManager()
+
+        class DemoPlugin(Plugin):
+            info = PluginInfo(name="demo", version="1.0.0",
+                              description="演示插件")
+
+            def __init__(self):
+                super().__init__()
+                self.events = []
+
+            def on_load(self, context):
+                context.log("插件加载")
+                self.events.append("loaded")
+
+            def on_enable(self):
+                self.events.append("enabled")
+
+            def on_disable(self):
+                self.events.append("disabled")
+
+            def on_unload(self):
+                self.events.append("unloaded")
+
+        plugin = DemoPlugin()
+        print(f"注册插件: {mgr.register(plugin)}")
+        print(f"启用插件: {mgr.enable('demo')}")
+        print(f"插件状态: {plugin.state.value}")
+        print(f"事件记录: {plugin.events}")
+        print(f"禁用插件: {mgr.disable('demo')}")
+        print(f"注销插件: {mgr.unregister('demo')}")
+        return 0
+
+    # 默认显示完整报告
+    print(get_plugin_report())
+    return 0
+
+
 def cmd_diagnose(args):
     """seva diagnose: 诊断系统"""
     print(f"\nSEVA系统诊断 (preset={args.preset})")
@@ -2716,6 +2828,26 @@ def build_parser():
     stability_parser.add_argument("--reset", action="store_true",
                                    help="重置所有稳定性状态")
     stability_parser.set_defaults(func=cmd_stability)
+
+    # plugin命令（阶段54）
+    plugin_parser = subparsers.add_parser("plugin", help="插件系统管理")
+    plugin_parser.add_argument("--report", action="store_true",
+                                help="显示插件报告 (默认)")
+    plugin_parser.add_argument("--list", action="store_true",
+                                help="列出所有插件")
+    plugin_parser.add_argument("--enable", type=str, default=None,
+                                help="启用指定插件")
+    plugin_parser.add_argument("--disable", type=str, default=None,
+                                help="禁用指定插件")
+    plugin_parser.add_argument("--hooks", action="store_true",
+                                help="查看钩子统计")
+    plugin_parser.add_argument("--discover", action="store_true",
+                                help="发现并加载插件目录中的插件")
+    plugin_parser.add_argument("--demo", action="store_true",
+                                help="演示插件系统")
+    plugin_parser.add_argument("--reset", action="store_true",
+                                help="重置所有插件状态")
+    plugin_parser.set_defaults(func=cmd_plugin)
 
     return parser
 
