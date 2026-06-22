@@ -37,6 +37,7 @@
 阶段65: 对话Agent
 阶段66: 编程Agent
 阶段67: 研究Agent
+阶段68: 工作流Agent
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -190,6 +191,20 @@
     report = researcher.research("什么是量子计算?",             # 执行研究
                                   topic="量子计算")
     print(report.content)                                       # 研究报告
+
+    from seva import (WorkflowAgent, WorkflowAgentConfig,
+                      WorkflowBuilder, Workflow, WorkflowExecutor)
+    wf_agent = WorkflowAgent(config=WorkflowAgentConfig())      # 工作流Agent
+    wf_agent.start()                                            # 启动
+    wf = (WorkflowBuilder("data_pipeline")                     # 构建工作流
+          .step("load", action="set_var",
+                parameters={"var_name": "data", "var_value": [1, 2, 3]})
+          .step("process", action="echo",
+                dependencies=["load"], input_key="data",
+                output_key="processed")
+          .build())
+    result = wf_agent.execute_workflow(wf)                      # 执行工作流
+    print(result["status"])                                     # completed
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -393,7 +408,11 @@ from .agents import (AgentState, AgentEventType, AgentEvent,
                      SourceInfo, ResearchFinding, ResearchReport,
                      InfoRetriever, InfoAnalyzer, ReportGenerator,
                      ResearchAgentConfig, ResearchAgent,
-                     get_research_agent, reset_research_agent)
+                     get_research_agent, reset_research_agent,
+                     StepStatus, WorkflowStatus,
+                     WorkflowStep, Workflow, WorkflowExecutor, WorkflowBuilder,
+                     WorkflowAgentConfig, WorkflowAgent,
+                     get_workflow_agent, reset_workflow_agent)
 
 __all__ = [
     "Config",
@@ -891,6 +910,16 @@ __all__ = [
     "ResearchAgent",
     "get_research_agent",
     "reset_research_agent",
+    "StepStatus",
+    "WorkflowStatus",
+    "WorkflowStep",
+    "Workflow",
+    "WorkflowExecutor",
+    "WorkflowBuilder",
+    "WorkflowAgentConfig",
+    "WorkflowAgent",
+    "get_workflow_agent",
+    "reset_workflow_agent",
 ]
 
-__version__ = "0.67.0"
+__version__ = "0.68.0"

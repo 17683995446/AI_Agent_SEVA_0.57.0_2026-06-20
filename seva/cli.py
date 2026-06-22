@@ -3040,6 +3040,143 @@ def cmd_research(args):
     return 0
 
 
+def cmd_workflow(args):
+    """seva workflow: 工作流Agent（阶段68）"""
+    from .agents import (WorkflowAgent, WorkflowAgentConfig,
+                         WorkflowBuilder, Workflow, WorkflowExecutor,
+                         StepStatus, WorkflowStatus,
+                         get_workflow_agent, reset_workflow_agent)
+
+    if args.workflow_reset:
+        reset_workflow_agent()
+        print("已重置全局工作流Agent")
+        return 0
+
+    agent = get_workflow_agent()
+
+    # 执行内置示例工作流
+    if args.demo:
+        agent.start()
+        wf = (WorkflowBuilder("demo_pipeline",
+                              description="演示工作流")
+              .context("input_data", "Hello, SEVA Workflow!")
+              .step("init", action="set_var",
+                    parameters={"var_name": "counter", "var_value": 0},
+                    output_key="counter")
+              .step("echo_input", action="echo",
+                    dependencies=["init"],
+                    input_key="input_data",
+                    output_key="echoed")
+              .step("finalize", action="noop",
+                    dependencies=["echo_input"])
+              .build())
+        result = agent.execute_workflow(wf)
+        print(f"\n=== 工作流执行结果 ===")
+        print(f"名称: {wf.name}")
+        print(f"状态: {result['status']}")
+        print(f"进度: {result['progress']*100:.1f}%")
+        print(f"步骤: {result['steps_completed']}/{result['steps_total']} 完成")
+        print(f"失败: {result['steps_failed']}")
+        print(f"延迟: {result['latency_ms']:.0f}ms")
+        print(f"\n上下文:")
+        for k, v in result["context"].items():
+            print(f"  {k}: {v}")
+        return 0 if result["status"] == "completed" else 1
+
+    # 执行自定义JSON工作流
+    if args.run_json:
+        import json
+        try:
+            spec = json.loads(args.run_json)
+        except json.JSONDecodeError as e:
+            print(f"JSON解析失败: {e}")
+            return 1
+
+        builder = WorkflowBuilder(spec.get("name", "cli_workflow"),
+                                  spec.get("description", ""))
+        for ctx_key, ctx_val in spec.get("context", {}).items():
+            builder = builder.context(ctx_key, ctx_val)
+        for step_spec in spec.get("steps", []):
+            builder = builder.step(
+                name=step_spec.get("name", ""),
+                action=step_spec.get("action", "noop"),
+                description=step_spec.get("description", ""),
+                dependencies=step_spec.get("dependencies"),
+                parameters=step_spec.get("parameters"),
+                input_key=step_spec.get("input_key"),
+                output_key=step_spec.get("output_key"),
+            )
+        wf = builder.build()
+
+        agent.start()
+        # 注册自定义动作处理器
+        if args.register_actions:
+            print("注意: --register-actions 仅在编程API中可用,CLI暂不支持")
+
+        result = agent.execute_workflow(wf)
+        print(f"\n=== 工作流执行结果 ===")
+        print(f"名称: {wf.name}")
+        print(f"状态: {result['status']}")
+        print(f"进度: {result['progress']*100:.1f}%")
+        print(f"步骤: {result['steps_completed']}/{result['steps_total']} 完成")
+        print(f"\n步骤详情:")
+        for s in wf.steps:
+            print(f"  - {s.name}: {s.status.value}"
+                  + (f" (错误: {s.error})" if s.error else ""))
+        print(f"\n上下文:")
+        for k, v in result["context"].items():
+            print(f"  {k}: {v}")
+        return 0 if result["status"] == "completed" else 1
+
+    # 列出工作流
+    if args.list:
+        workflows = agent.list_workflows()
+        if not workflows:
+            print("暂无工作流")
+            return 0
+        print(f"\n=== 工作流列表 ({len(workflows)}) ===")
+        print("-" * 60)
+        for wf in workflows:
+            print(f"  ID: {wf.id}")
+            print(f"  名称: {wf.name}")
+            print(f"  状态: {wf.status.value}")
+            print(f"  步骤: {len(wf.steps)}")
+            print(f"  进度: {wf.progress*100:.1f}%")
+            print()
+        return 0
+
+    # 显示统计
+    if args.stats:
+        stats = agent.get_stats()
+        print(f"\n=== 工作流Agent统计 ===")
+        print("-" * 60)
+        for k, v in stats.items():
+            if isinstance(v, dict):
+                print(f"\n{k}:")
+                for sk, sv in v.items():
+                    print(f"  {sk}: {sv}")
+            elif isinstance(v, float):
+                print(f"  {k}: {v:.2f}")
+            else:
+                print(f"  {k}: {v}")
+        return 0
+
+    # 默认显示帮助
+    print("seva workflow - 工作流Agent")
+    print()
+    print("用法:")
+    print("  seva workflow --demo                          # 运行演示工作流")
+    print("  seva workflow --run-json '{...}'              # 运行JSON工作流")
+    print("  seva workflow --list                          # 列出工作流")
+    print("  seva workflow --stats                         # 显示统计")
+    print("  seva workflow --workflow-reset                # 重置Agent")
+    print()
+    print("JSON工作流示例:")
+    print('  seva workflow --run-json \'{"name":"test",')
+    print('    "steps":[{"name":"s1","action":"noop"}]}\'')
+    return 0
+
+
 def cmd_llm_loop(args):
     """seva llm-loop: 16阶段循环LLM增强管理（阶段60）"""
     from .llm_loop import get_llm_loop, reset_llm_loop
@@ -4263,14 +4400,29 @@ def build_parser():
     # research 命令 (阶段67)
     research_parser = subparsers.add_parser("research", help="研究Agent")
     research_parser.add_argument("-q", "--query", type=str, default=None,
-                                  help="研究查询")
+                                 help="研究查询")
     research_parser.add_argument("--topic", type=str, default=None,
-                                  help="研究主题")
+                                 help="研究主题")
     research_parser.add_argument("--stats", action="store_true",
-                                  help="显示统计")
+                                 help="显示统计")
     research_parser.add_argument("--research-reset", action="store_true",
-                                  help="重置全局研究Agent")
+                                 help="重置全局研究Agent")
     research_parser.set_defaults(func=cmd_research)
+
+    workflow_parser = subparsers.add_parser("workflow", help="工作流Agent")
+    workflow_parser.add_argument("--demo", action="store_true",
+                                 help="运行演示工作流")
+    workflow_parser.add_argument("--run-json", type=str, default=None,
+                                 help="运行JSON格式工作流")
+    workflow_parser.add_argument("--register-actions", action="store_true",
+                                 help="注册自定义动作(仅提示,CLI不支持)")
+    workflow_parser.add_argument("--list", action="store_true",
+                                 help="列出所有工作流")
+    workflow_parser.add_argument("--stats", action="store_true",
+                                 help="显示统计")
+    workflow_parser.add_argument("--workflow-reset", action="store_true",
+                                 help="重置全局工作流Agent")
+    workflow_parser.set_defaults(func=cmd_workflow)
 
     return parser
 

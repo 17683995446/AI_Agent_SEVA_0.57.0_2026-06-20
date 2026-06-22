@@ -42,6 +42,12 @@ from .research import (
     ResearchAgentConfig, ResearchAgent,
     get_research_agent, reset_research_agent,
 )
+from .workflow import (
+    StepStatus, WorkflowStatus,
+    WorkflowStep, Workflow, WorkflowExecutor, WorkflowBuilder,
+    WorkflowAgentConfig, WorkflowAgent,
+    get_workflow_agent, reset_workflow_agent,
+)
 
 __all__ = [
     # 阶段64
@@ -92,5 +98,16 @@ __all__ = [
     "ResearchAgent",
     "get_research_agent",
     "reset_research_agent",
+    # 阶段68
+    "StepStatus",
+    "WorkflowStatus",
+    "WorkflowStep",
+    "Workflow",
+    "WorkflowExecutor",
+    "WorkflowBuilder",
+    "WorkflowAgentConfig",
+    "WorkflowAgent",
+    "get_workflow_agent",
+    "reset_workflow_agent",
 ]
 
