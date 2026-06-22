@@ -3177,6 +3177,117 @@ def cmd_workflow(args):
     return 0
 
 
+def cmd_registry(args):
+    """seva registry: Agent注册中心与工厂（阶段69）"""
+    from .agents import (AgentRegistry, AgentFactory, AgentLoader,
+                         get_agent_registry, get_agent_factory, get_agent_loader,
+                         reset_all_registry, create_agent, list_agent_types,
+                         register_agent_type, AgentConfig, BaseAgent)
+
+    if args.registry_reset:
+        reset_all_registry()
+        print("已重置全局Agent注册中心/工厂/加载器")
+        return 0
+
+    registry = get_agent_registry()
+
+    # 列出所有类型
+    if args.list_types:
+        types = registry.list_detailed()
+        print(f"\n=== 已注册Agent类型 ({len(types)}) ===")
+        print("-" * 70)
+        for info in types:
+            print(f"  类型: {info.type_name}")
+            print(f"  类: {info.agent_class.__name__}")
+            print(f"  配置: {info.config_class.__name__}")
+            print(f"  描述: {info.description}")
+            print(f"  分类: {info.category}")
+            print(f"  版本: {info.version}")
+            if info.aliases:
+                print(f"  别名: {', '.join(info.aliases)}")
+            print()
+        return 0
+
+    # 列出别名
+    if args.list_aliases:
+        aliases = registry.list_aliases()
+        print(f"\n=== Agent类型别名 ({len(aliases)}) ===")
+        print("-" * 40)
+        for alias, type_name in sorted(aliases.items()):
+            print(f"  {alias:20s} -> {type_name}")
+        return 0
+
+    # 创建Agent
+    if args.create:
+        try:
+            agent = create_agent(args.create)
+            print(f"\n=== 创建Agent成功 ===")
+            print(f"  类型: {args.create}")
+            print(f"  类: {type(agent).__name__}")
+            print(f"  ID: {agent.agent_id}")
+            print(f"  状态: {agent.state.value}")
+            return 0
+        except Exception as e:
+            print(f"创建失败: {e}")
+            return 1
+
+    # 从文件加载Agent
+    if args.load:
+        import json
+        from pathlib import Path
+        path = Path(args.load)
+        if not path.exists():
+            print(f"文件不存在: {path}")
+            return 1
+        try:
+            loader = get_agent_loader()
+            agent = loader.load_from_file(path)
+            print(f"\n=== 加载Agent成功 ===")
+            print(f"  类型: {type(agent).__name__}")
+            print(f"  ID: {agent.agent_id}")
+            return 0
+        except Exception as e:
+            print(f"加载失败: {e}")
+            return 1
+
+    # 显示报告
+    if args.report:
+        report = registry.get_report()
+        print(f"\n=== Agent注册中心报告 ===")
+        print("-" * 50)
+        print(f"总类型数: {report['total_types']}")
+        print(f"总别名数: {report['total_aliases']}")
+        print(f"\n分类统计:")
+        for cat, count in report["categories"].items():
+            print(f"  {cat}: {count}")
+        print(f"\n类型列表:")
+        for t in report["types"]:
+            print(f"  - {t['type_name']} ({t['agent_class']}): {t['description']}")
+        return 0
+
+    # 工厂统计
+    if args.factory_stats:
+        factory = get_agent_factory()
+        stats = factory.get_stats()
+        print(f"\n=== Agent工厂统计 ===")
+        for k, v in stats.items():
+            print(f"  {k}: {v}")
+        return 0
+
+    # 默认显示帮助
+    print("seva registry - Agent注册中心与工厂")
+    print()
+    print("用法:")
+    print("  seva registry --list-types                # 列出所有Agent类型")
+    print("  seva registry --list-aliases              # 列出所有别名")
+    print("  seva registry --create conversation       # 创建Agent")
+    print("  seva registry --load agent.json           # 从文件加载Agent")
+    print("  seva registry --report                    # 显示注册中心报告")
+    print("  seva registry --factory-stats             # 显示工厂统计")
+    print("  seva registry --registry-reset            # 重置注册中心")
+    return 0
+
+
 def cmd_llm_loop(args):
     """seva llm-loop: 16阶段循环LLM增强管理（阶段60）"""
     from .llm_loop import get_llm_loop, reset_llm_loop
@@ -4423,6 +4534,25 @@ def build_parser():
     workflow_parser.add_argument("--workflow-reset", action="store_true",
                                  help="重置全局工作流Agent")
     workflow_parser.set_defaults(func=cmd_workflow)
+
+    # registry 命令 (阶段69)
+    registry_parser = subparsers.add_parser("registry",
+                                            help="Agent注册中心与工厂")
+    registry_parser.add_argument("--list-types", action="store_true",
+                                 help="列出所有已注册Agent类型")
+    registry_parser.add_argument("--list-aliases", action="store_true",
+                                 help="列出所有别名")
+    registry_parser.add_argument("--create", type=str, default=None,
+                                 help="创建指定类型的Agent")
+    registry_parser.add_argument("--load", type=str, default=None,
+                                 help="从JSON文件加载Agent")
+    registry_parser.add_argument("--report", action="store_true",
+                                 help="显示注册中心报告")
+    registry_parser.add_argument("--factory-stats", action="store_true",
+                                 help="显示工厂统计")
+    registry_parser.add_argument("--registry-reset", action="store_true",
+                                 help="重置全局注册中心/工厂/加载器")
+    registry_parser.set_defaults(func=cmd_registry)
 
     return parser
 

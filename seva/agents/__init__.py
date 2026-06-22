@@ -17,6 +17,13 @@ SEVA Agent应用层（阶段64-69）
     runner.register(agent)
     agent.start()
     result = agent.run("hello")
+
+    # 阶段69: 通过工厂创建Agent
+    from seva.agents import create_agent, list_agent_types
+    print(list_agent_types())  # ['base', 'conversation', 'code', 'research', 'workflow']
+    conv = create_agent("conversation")  # 按类型名创建
+    conv.start()
+    result = conv.run("你好")
 """
 from .base import (
     AgentState, AgentEventType, AgentEvent,
@@ -47,6 +54,14 @@ from .workflow import (
     WorkflowStep, Workflow, WorkflowExecutor, WorkflowBuilder,
     WorkflowAgentConfig, WorkflowAgent,
     get_workflow_agent, reset_workflow_agent,
+)
+from .registry import (
+    AgentTypeInfo, AgentRegistry, AgentFactory, AgentLoader,
+    get_agent_registry, reset_agent_registry,
+    get_agent_factory, reset_agent_factory,
+    get_agent_loader, reset_agent_loader,
+    reset_all_registry,
+    create_agent, list_agent_types, register_agent_type,
 )
 
 __all__ = [
@@ -109,5 +124,20 @@ __all__ = [
     "WorkflowAgent",
     "get_workflow_agent",
     "reset_workflow_agent",
+    # 阶段69
+    "AgentTypeInfo",
+    "AgentRegistry",
+    "AgentFactory",
+    "AgentLoader",
+    "get_agent_registry",
+    "reset_agent_registry",
+    "get_agent_factory",
+    "reset_agent_factory",
+    "get_agent_loader",
+    "reset_agent_loader",
+    "reset_all_registry",
+    "create_agent",
+    "list_agent_types",
+    "register_agent_type",
 ]
 

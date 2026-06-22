@@ -38,6 +38,7 @@
 阶段66: 编程Agent
 阶段67: 研究Agent
 阶段68: 工作流Agent
+阶段69: Agent注册中心与工厂模式
 快速启动:
     from seva import quickstart
     agent, stats = quickstart(steps=100)
@@ -205,6 +206,16 @@
           .build())
     result = wf_agent.execute_workflow(wf)                      # 执行工作流
     print(result["status"])                                     # completed
+
+    from seva import (create_agent, list_agent_types,
+                      AgentRegistry, AgentFactory, AgentLoader)
+    print(list_agent_types())                                   # 列出所有类型
+    conv = create_agent("conversation")                         # 工厂创建Agent
+    conv.start()
+    result = conv.run("你好")                                  # 运行
+    loader = AgentLoader()                                      # 加载器
+    data = loader.save_to_dict(conv)                            # 保存为字典
+    agent2 = loader.load_from_dict(data)                        # 从字典加载
 """
 from .config import Config
 from .core import SelfEvolvingAgentCore
@@ -412,7 +423,13 @@ from .agents import (AgentState, AgentEventType, AgentEvent,
                      StepStatus, WorkflowStatus,
                      WorkflowStep, Workflow, WorkflowExecutor, WorkflowBuilder,
                      WorkflowAgentConfig, WorkflowAgent,
-                     get_workflow_agent, reset_workflow_agent)
+                     get_workflow_agent, reset_workflow_agent,
+                     AgentTypeInfo, AgentRegistry, AgentFactory, AgentLoader,
+                     get_agent_registry, reset_agent_registry,
+                     get_agent_factory, reset_agent_factory,
+                     get_agent_loader, reset_agent_loader,
+                     reset_all_registry,
+                     create_agent, list_agent_types, register_agent_type)
 
 __all__ = [
     "Config",
@@ -920,6 +937,20 @@ __all__ = [
     "WorkflowAgent",
     "get_workflow_agent",
     "reset_workflow_agent",
+    "AgentTypeInfo",
+    "AgentRegistry",
+    "AgentFactory",
+    "AgentLoader",
+    "get_agent_registry",
+    "reset_agent_registry",
+    "get_agent_factory",
+    "reset_agent_factory",
+    "get_agent_loader",
+    "reset_agent_loader",
+    "reset_all_registry",
+    "create_agent",
+    "list_agent_types",
+    "register_agent_type",
 ]
 
-__version__ = "0.68.0"
+__version__ = "0.69.0"
